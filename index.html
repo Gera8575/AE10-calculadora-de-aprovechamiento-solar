@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal C - Calculadora de Potencial Solar</title>
+    <title>Calculadora de Potencial Solar</title>
     <!-- Tailwind CSS para diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Fuente monoespaciada ideal para arte ASCII y caracteres Braille -->
@@ -57,8 +57,8 @@
                 <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
                 <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
                 <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
-                <span class="ml-3 text-xs sm:text-sm font-medium text-gray-400 truncate">
-                    bash — gcc AE10_Calculadora_potencial_solar.c -o solar && ./solar
+                <span id="windowTitle" class="ml-3 text-xs sm:text-sm font-medium text-gray-400 truncate">
+                    bash — gcc main.c -o solar && ./solar
                 </span>
             </div>
 
@@ -84,20 +84,10 @@
         <!-- Visor colapsable del código fuente obtenido del archivo .c -->
         <div id="codeDrawer" class="hidden bg-gray-950 border-b border-gray-800 p-4 max-h-72 overflow-y-auto">
             <div class="flex justify-between items-center mb-2">
-                <span id="loadedFileName" class="text-xs font-semibold uppercase tracking-wider text-blue-400">AE10_Calculadora_potencial_solar.c</span>
+                <span id="loadedFileName" class="text-xs font-semibold uppercase tracking-wider text-blue-400">main.c</span>
                 <button id="btnCopyCode" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded transition">Copiar código</button>
             </div>
             <pre id="sourceCodeDisplay" class="terminal-font text-xs text-gray-300 overflow-x-auto">Cargando archivo .c desde el repositorio...</pre>
-        </div>
-        </div>
-
-        <!-- Visor colapsable del código fuente original en C -->
-        <div id="codeDrawer" class="hidden bg-gray-950 border-b border-gray-800 p-4 max-h-72 overflow-y-auto">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-semibold uppercase tracking-wider text-blue-400">AE10_Calculadora_potencial_solar.c</span>
-                <button id="btnCopyCode" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded transition">Copiar código</button>
-            </div>
-            <pre id="sourceCodeDisplay" class="terminal-font text-xs text-gray-300 overflow-x-auto"></pre>
         </div>
 
         <!-- Área de la Terminal Interactiva -->
@@ -141,8 +131,11 @@
     </div>
 
     <script>
-        // Ruta relativa al archivo .c dentro del mismo repositorio
-        const C_FILE_PATH = './AE10_Calculadora_potencial_solar.c';
+        // Posibles rutas relativas dentro del repositorio (priorizando main.c y main)
+        const CANDIDATE_PATHS = [
+            './main.c',
+            './main',
+        ];
 
         // Referencias al DOM
         const terminalOutput = document.getElementById('terminalOutput');
@@ -157,6 +150,7 @@
         const codeDrawer = document.getElementById('codeDrawer');
         const sourceCodeDisplay = document.getElementById('sourceCodeDisplay');
         const loadedFileName = document.getElementById('loadedFileName');
+        const windowTitle = document.getElementById('windowTitle');
         const btnCopyCode = document.getElementById('btnCopyCode');
         const btnMobileEnter = document.getElementById('btnMobileEnter');
         const fileInputC = document.getElementById('fileInputC');
@@ -164,74 +158,52 @@
 
         // Estado de ejecución
         let currentSourceCode = '';
-        let currentFileName = 'AE10_Calculadora_potencial_solar.c';
+        let currentFileName = 'main.c';
         let currentRunId = 0;
         let currentSpan = null;
-        let activeStyle = '';
+        let currentFgColor = null;
+        let currentBgColor = null;
         let inputResolver = null;
-        let stdinHistory = []; // Almacena las entradas enviadas al compilador real
 
-        /**
-         * Mapeo de códigos ANSI 256-color y colores estándar
-         */
-        const ANSI_256_BG = {
-            220: 'background-color: #ffd700; color: #000000; font-weight: 600; padding: 1px 6px; border-radius: 3px;',
-            214: 'background-color: #ffaf00; color: #000000; font-weight: 600; padding: 1px 6px; border-radius: 3px;',
-            202: 'background-color: #ff5f00; color: #ffffff; font-weight: 600; padding: 1px 6px; border-radius: 3px;'
+        // Mapa de colores ANSI de 256 bits usados en el programa
+        const ANSI_256_MAP = {
+            220: '#ffd700', // Amarillo brillante (Pequeño 300W)
+            214: '#ffaf00', // Naranja dorado (Estándar 400W)
+            202: '#ff5f00'  // Naranja intenso (Grande 500W)
         };
 
-        function ensureStyledSpan() {
-            if (!currentSpan) {
-                currentSpan = document.createElement('span');
-                if (activeStyle) {
-                    currentSpan.setAttribute('style', activeStyle);
-                }
-                terminalOutput.appendChild(currentSpan);
-            }
-            return currentSpan;
-        }
-
-        function handleAnsiEscape(seq) {
-            if (seq === '\x1b[0m') {
-                activeStyle = '';
-                currentSpan = null;
-            } else if (seq === '\x1b[31m') {
-                activeStyle = 'color: #f87171;';
-                currentSpan = null;
-            } else if (seq === '\x1b[32m') {
-                activeStyle = 'color: #34d399;';
-                currentSpan = null;
-            } else if (seq === '\x1b[33m') {
-                activeStyle = 'color: #facc15;';
-                currentSpan = null;
-            } else if (seq === '\x1b[36m') {
-                activeStyle = 'color: #38bdf8;';
-                currentSpan = null;
-            } else if (seq === '\x1b[?25l') {
-                blockCursor.classList.add('hidden');
-            } else if (seq === '\x1b[?25h') {
-                blockCursor.classList.remove('hidden');
-            } else if (seq === '\x1b[2J' || seq === '\x1b[H') {
-                terminalOutput.innerHTML = '';
-                currentSpan = null;
-            } else {
-                const match256 = seq.match(/^\x1b\[48;5;(\d+)m$/);
-                if (match256) {
-                    const code = parseInt(match256[1], 10);
-                    activeStyle = ANSI_256_BG[code] || '';
-                    currentSpan = null;
-                }
-            }
-        }
-
-        function putchar(ch) {
-            const span = ensureStyledSpan();
-            span.textContent += ch;
-            terminalContainer.scrollTop = terminalContainer.scrollHeight;
-        }
+        // Mapa de colores ANSI básicos
+        const ANSI_BASIC_FG = {
+            30: '#1f2937',
+            31: '#f87171',
+            32: '#34d399',
+            33: '#facc15',
+            34: '#60a5fa',
+            35: '#c084fc',
+            36: '#22d3ee',
+            37: '#f3f4f6'
+        };
 
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function scrollToBottom() {
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        function focusTerminalInput() {
+            if (!inputWrapper.classList.contains('hidden')) {
+                terminalInput.focus();
+            }
+        }
+
+        function showToast(msg) {
+            toastNotification.textContent = msg;
+            toastNotification.classList.remove('opacity-0');
+            setTimeout(() => {
+                toastNotification.classList.add('opacity-0');
+            }, 2200);
         }
 
         function setStatus(text, colorClass) {
@@ -240,139 +212,202 @@
         }
 
         /**
-         * Carga el archivo .c real desde el repositorio mediante fetch()
+         * Carga el archivo .c real desde el repositorio probando las rutas candidatas
          */
         async function fetchCFileFromRepo() {
-            try {
-                const response = await fetch(C_FILE_PATH, { cache: 'no-store' });
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: No se encontró ${C_FILE_PATH}`);
+            for (const path of CANDIDATE_PATHS) {
+                try {
+                    const response = await fetch(path, { cache: 'no-store' });
+                    if (response.ok) {
+                        const code = await response.text();
+                        // Verificar que no sea una página HTML 404 personalizada
+                        if (code.trim().startsWith('<!DOCTYPE') || code.trim().startsWith('<html')) {
+                            continue;
+                        }
+                        const cleanName = path.replace('./', '');
+                        currentSourceCode = code;
+                        currentFileName = cleanName;
+                        loadedFileName.textContent = cleanName;
+                        windowTitle.textContent = `bash — gcc ${cleanName} -o solar && ./solar`;
+                        sourceCodeDisplay.textContent = code;
+                        return { code, path };
+                    }
+                } catch (err) {
+                    // Continuar probando la siguiente ruta
                 }
-                const code = await response.text();
-                currentSourceCode = code;
-                currentFileName = 'AE10_Calculadora_potencial_solar.c';
-                loadedFileName.textContent = currentFileName;
-                sourceCodeDisplay.textContent = code;
-                return code;
-            } catch (err) {
-                return null;
             }
+            return null;
+        }
+
+        /**
+         * Crea o reutiliza un nodo <span> con los estilos ANSI actuales
+         */
+        function ensureStyledSpan() {
+            if (!currentSpan) {
+                currentSpan = document.createElement('span');
+                if (currentFgColor) currentSpan.style.color = currentFgColor;
+                if (currentBgColor) {
+                    currentSpan.style.backgroundColor = currentBgColor;
+                    currentSpan.style.color = '#111827';
+                    currentSpan.style.fontWeight = '600';
+                    currentSpan.style.padding = '0 4px';
+                    currentSpan.style.borderRadius = '3px';
+                }
+                terminalOutput.appendChild(currentSpan);
+            }
+            return currentSpan;
+        }
+
+        function appendPlainChar(ch) {
+            const span = ensureStyledSpan();
+            span.textContent += ch;
+        }
+
+        /**
+         * Procesa secuencias de escape ANSI (\033[...m, \033[2J, \033[?25l, etc.)
+         */
+        function handleAnsiCode(seq) {
+            if (seq === '[2J' || seq === '[H') {
+                terminalOutput.innerHTML = '';
+                currentSpan = null;
+                return;
+            }
+            if (seq === '[?25l') {
+                blockCursor.style.visibility = 'hidden';
+                return;
+            }
+            if (seq === '[?25h') {
+                blockCursor.style.visibility = 'visible';
+                return;
+            }
+            if (seq.startsWith('[') && seq.endsWith('m')) {
+                const body = seq.slice(1, -1);
+                currentSpan = null;
+                if (body === '' || body === '0') {
+                    currentFgColor = null;
+                    currentBgColor = null;
+                    return;
+                }
+                const parts = body.split(';').map(Number);
+                if (parts[0] === 48 && parts[1] === 5 && parts.length >= 3) {
+                    currentBgColor = ANSI_256_MAP[parts[2]] || '#facc15';
+                } else if (ANSI_BASIC_FG[parts[0]]) {
+                    currentFgColor = ANSI_BASIC_FG[parts[0]];
+                }
+            }
+        }
+
+        /**
+         * Renderiza un fragmento de salida estándar (stdout) interpretando ANSI y typewriter
+         */
+        async function renderStdoutChunk(text, runId, animateTypewriter = true) {
+            let i = 0;
+            let charCount = 0;
+            while (i < text.length) {
+                if (runId !== currentRunId) return;
+
+                if (text[i] === '\x1b') {
+                    let j = i + 1;
+                    while (j < text.length && !/[A-Za-z]/.test(text[j])) {
+                        j++;
+                    }
+                    if (j < text.length) {
+                        const seq = text.slice(i + 1, j + 1);
+                        handleAnsiCode(seq);
+                        i = j + 1;
+                        continue;
+                    }
+                }
+
+                appendPlainChar(text[i]);
+                i++;
+                charCount++;
+
+                if (animateTypewriter && charCount % 12 === 0) {
+                    scrollToBottom();
+                    await sleep(4);
+                }
+            }
+            scrollToBottom();
+        }
+
+        /**
+         * Solicita una línea de entrada al usuario para alimentar stdin (scanf)
+         */
+        function waitForUserLine(runId) {
+            return new Promise((resolve) => {
+                if (runId !== currentRunId) {
+                    resolve('');
+                    return;
+                }
+                inputWrapper.classList.remove('hidden');
+                inputWrapper.classList.add('flex');
+                blockCursor.classList.add('hidden');
+                terminalInput.value = '';
+                terminalInput.focus();
+                scrollToBottom();
+
+                inputResolver = (val) => {
+                    inputWrapper.classList.add('hidden');
+                    inputWrapper.classList.remove('flex');
+                    blockCursor.classList.remove('hidden');
+                    inputResolver = null;
+                    resolve(val);
+                };
+            });
         }
 
         /**
          * Envía el código C real y la entrada estándar (stdin) acumulada a GCC en la nube (Wandbox API)
          */
-        async function compileAndExecuteGCC(sourceCode, stdinStr) {
+        async function executeWithGCC(sourceCode, stdinData) {
             const response = await fetch('https://wandbox.org/api/compile.json', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     compiler: 'gcc-head',
                     code: sourceCode,
-                    stdin: stdinStr,
-                    options: 'warning'
+                    stdin: stdinData,
+                    'compiler-option-raw': '-Wall\n-O2'
                 })
             });
 
             if (!response.ok) {
-                throw new Error(`Error de conexión con el servidor GCC (${response.status})`);
+                throw new Error(`Error HTTP ${response.status} al contactar el servidor de compilación GCC.`);
             }
             return await response.json();
         }
 
         /**
-         * Imprime la salida real recibida desde stdout del binario compilado en C
-         */
-        async function renderStdoutChunk(text, runId, animateTypewriter) {
-            let i = 0;
-            let charCounter = 0;
-            while (i < text.length) {
-                if (runId !== currentRunId) return;
-
-                if (text[i] === '\x1b') {
-                    let seq = '';
-                    while (i < text.length) {
-                        seq += text[i];
-                        const ch = text[i];
-                        i++;
-                        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
-                            break;
-                        }
-                    }
-                    handleAnsiEscape(seq);
-                } else {
-                    putchar(text[i]);
-                    i++;
-                    charCounter++;
-                    // Conserva el efecto fluido de tu ascii_typewriter en la salida real
-                    if (animateTypewriter && charCounter % 12 === 0) {
-                        await sleep(3);
-                    }
-                }
-            }
-        }
-
-        /**
-         * Espera la entrada del usuario para alimentar el stdin real de scanf()
-         */
-        function waitForUserStdin(runId) {
-            return new Promise((resolve) => {
-                if (runId !== currentRunId) return;
-
-                setStatus('Esperando entrada estándar (stdin)...', 'bg-amber-400');
-                blockCursor.classList.add('hidden');
-                
-                terminalOutput.appendChild(inputWrapper);
-                inputWrapper.classList.remove('hidden');
-                inputWrapper.classList.add('inline-flex');
-                terminalInput.value = '';
-                terminalInput.focus();
-                terminalContainer.scrollTop = terminalContainer.scrollHeight;
-
-                inputResolver = (rawValue) => {
-                    inputWrapper.classList.add('hidden');
-                    inputWrapper.classList.remove('inline-flex');
-                    if (inputWrapper.parentNode === terminalOutput) {
-                        terminalOutput.removeChild(inputWrapper);
-                    }
-                    
-                    // Eco visual de la entrada escrita por el usuario
-                    renderStdoutChunk(`\x1b[32m${rawValue}\x1b[0m\n`, runId, false);
-                    blockCursor.classList.remove('hidden');
-                    resolve(rawValue);
-                };
-            });
-        }
-
-        /**
-         * Flujo real de compilación y ejecución interactiva del archivo .c del repositorio
+         * Flujo principal: obtiene el archivo .c real, lo compila con GCC y maneja la E/S interactiva
          */
         async function runRealCProgram() {
-            const runId = ++currentRunId;
-            inputResolver = null;
-            activeStyle = '';
-            currentSpan = null;
-            stdinHistory = [];
+            currentRunId++;
+            const runId = currentRunId;
 
-            if (inputWrapper.parentNode === terminalOutput) {
-                terminalContainer.appendChild(inputWrapper);
-            }
-            inputWrapper.classList.add('hidden');
+            // Reiniciar estado visual de la terminal
             terminalOutput.innerHTML = '';
+            currentSpan = null;
+            currentFgColor = null;
+            currentBgColor = null;
+            inputWrapper.classList.add('hidden');
+            inputWrapper.classList.remove('flex');
+            blockCursor.classList.remove('hidden');
+            blockCursor.style.visibility = 'visible';
 
             // 1. Obtener el archivo .c real del repositorio si aún no está en memoria
             if (!currentSourceCode) {
-                setStatus(`Leyendo ${C_FILE_PATH}...`, 'bg-blue-400');
-                await renderStdoutChunk(`\x1b[36m$ cat ${C_FILE_PATH}\x1b[0m\n`, runId, false);
+                setStatus('Buscando archivo C en el repositorio...', 'bg-blue-400');
+                await renderStdoutChunk(`\x1b[36m$ ls -la && cat main.c\x1b[0m\n`, runId, false);
                 const fetched = await fetchCFileFromRepo();
                 if (runId !== currentRunId) return;
 
                 if (!fetched) {
-                    setStatus('Archivo .c no encontrado en ruta relativa', 'bg-red-500');
+                    setStatus('Archivo C no encontrado en el repositorio', 'bg-red-500');
                     await renderStdoutChunk(
-                        `\x1b[31mError: No se pudo cargar '${C_FILE_PATH}' vía HTTP.\x1b[0m\n` +
-                        `Asegúrate de abrir este HTML desde un servidor web o GitHub Pages junto a tu archivo .c,\n` +
-                        `o usa el botón superior \x1b[33m"Cargar .c"\x1b[0m para seleccionar tu archivo localmente.\n`,
+                        `\x1b[31mError: No se encontró 'main.c' ni 'main' en esta carpeta.\x1b[0m\n` +
+                        `Verifica que el archivo esté en la misma carpeta que este HTML en GitHub Pages,\n` +
+                        `o usa el botón superior \x1b[33m"Cargar .c"\x1b[0m para seleccionarlo manualmente.\n`,
                         runId,
                         false
                     );
@@ -385,103 +420,72 @@
             await renderStdoutChunk(`\x1b[36m$ gcc ${currentFileName} -o app && ./app\x1b[0m\n`, runId, false);
 
             let previousStdoutLength = 0;
-            let isFirstPass = true;
+            let accumulatedStdin = '';
+            const maxScanfPrompts = 10;
 
             try {
-                while (runId === currentRunId) {
-                    const stdinPayload = stdinHistory.length > 0 ? stdinHistory.join('\n') + '\n' : '';
-                    const result = await compileAndExecuteGCC(currentSourceCode, stdinPayload);
+                for (let step = 0; step <= maxScanfPrompts; step++) {
                     if (runId !== currentRunId) return;
 
-                    // Mostrar errores o advertencias reales del compilador GCC si existen
+                    setStatus(step === 0 ? 'Compilando y ejecutando en GCC...' : 'Procesando entrada en GCC...', 'bg-blue-400');
+                    const result = await executeWithGCC(currentSourceCode, accumulatedStdin);
+                    if (runId !== currentRunId) return;
+
+                    // Si hay errores de compilación reales de GCC, mostrarlos
                     if (result.compiler_error) {
-                        setStatus('Error de compilación GCC', 'bg-red-500');
+                        setStatus('Error de compilación (GCC)', 'bg-red-500');
                         await renderStdoutChunk(`\x1b[31m${result.compiler_error}\x1b[0m\n`, runId, false);
                         return;
                     }
 
-                    const fullStdout = result.program_output || '';
-                    // Extraer únicamente la salida nueva producida tras el último scanf
-                    const newOutput = fullStdout.slice(previousStdoutLength);
-                    previousStdoutLength = fullStdout.length;
+                    const fullOutput = result.program_output || '';
+                    const newChunk = fullOutput.slice(previousStdoutLength);
+                    previousStdoutLength = fullOutput.length;
 
-                    if (newOutput.length > 0) {
-                        setStatus('Ejecutando binario...', 'bg-emerald-400');
-                        await renderStdoutChunk(newOutput, runId, isFirstPass);
-                        isFirstPass = false;
+                    if (newChunk.length > 0) {
+                        await renderStdoutChunk(newChunk, runId, step === 0);
                     }
 
-                    // Detectar si el binario real está esperando entrada por teclado (ej. termina en ': ' o '? ')
-                    // y aún no ha finalizado normalmente, o si el programa terminó su ejecución.
-                    const needsMoreInput = /[:?]\s*$/.test(fullStdout) && stdinHistory.length < 10;
+                    if (result.program_error) {
+                        await renderStdoutChunk(`\x1b[31m${result.program_error}\x1b[0m\n`, runId, false);
+                    }
 
-                    if (needsMoreInput) {
-                        const userLine = await waitForUserStdin(runId);
-                        if (runId !== currentRunId) return;
-                        stdinHistory.push(userLine);
-                        setStatus('Procesando entrada en binario C...', 'bg-blue-400');
-                    } else {
-                        // El programa en C llegó a return 0
-                        const exitCode = result.status !== undefined ? result.status : '0';
-                        await renderStdoutChunk(
-                            `\n\x1b[36m[Binario finalizado con código de salida ${exitCode}]\x1b[0m\n`,
-                            runId,
-                            false
-                        );
-                        setStatus(`Finalizado (exit code ${exitCode})`, 'bg-gray-500');
+                    // Detectar si el programa sigue esperando entrada por scanf o ya terminó
+                    const trimmed = fullOutput.trimEnd();
+                    const waitingForInput = trimmed.endsWith(':') || trimmed.endsWith('?') || trimmed.endsWith(')');
+
+                    if (!waitingForInput || step === maxScanfPrompts) {
+                        const exitCode = result.status ?? 0;
+                        setStatus(`Proceso finalizado (código ${exitCode})`, 'bg-emerald-500');
+                        await renderStdoutChunk(`\n\x1b[32m[Proceso finalizado con código de salida ${exitCode}]\x1b[0m\n`, runId, false);
                         break;
                     }
+
+                    // Esperar entrada del usuario en la terminal
+                    setStatus('Esperando entrada (scanf)...', 'bg-amber-400');
+                    const userValue = await waitForUserLine(runId);
+                    if (runId !== currentRunId) return;
+
+                    // Hacer eco de lo que escribió el usuario
+                    currentSpan = null;
+                    currentFgColor = '#34d399';
+                    currentBgColor = null;
+                    for (const ch of userValue + '\n') {
+                        appendPlainChar(ch);
+                    }
+                    currentFgColor = null;
+                    currentSpan = null;
+
+                    accumulatedStdin += userValue + '\n';
                 }
-            } catch (err) {
+            } catch (error) {
                 if (runId !== currentRunId) return;
-                setStatus('Error de ejecución remota', 'bg-red-500');
-                await renderStdoutChunk(`\x1b[31mError al ejecutar GCC: ${err.message}\x1b[0m\n`, runId, false);
+                setStatus('Error de ejecución', 'bg-red-500');
+                await renderStdoutChunk(`\x1b[31mError: ${error.message}\x1b[0m\n`, runId, false);
             }
         }
 
-        // Permitir cargar un archivo .c manualmente desde el equipo si se abre sin servidor
-        fileInputC.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                currentSourceCode = ev.target.result;
-                currentFileName = file.name;
-                loadedFileName.textContent = currentFileName;
-                sourceCodeDisplay.textContent = currentSourceCode;
-                showToast(`Archivo ${file.name} cargado`);
-                runRealCProgram();
-            };
-            reader.readAsText(file);
-        });
-
-        // Manejo de tecla Enter en el input de la terminal
-        terminalInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && inputResolver) {
-                e.preventDefault();
-                const val = terminalInput.value;
-                const resolver = inputResolver;
-                inputResolver = null;
-                resolver(val);
-            }
-        });
-
-        btnMobileEnter.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (inputResolver) {
-                const val = terminalInput.value;
-                const resolver = inputResolver;
-                inputResolver = null;
-                resolver(val);
-            }
-        });
-
-        function focusTerminalInput() {
-            if (!inputWrapper.classList.contains('hidden')) {
-                terminalInput.focus();
-            }
-        }
-
+        // Eventos de botones y controles
         btnRestart.addEventListener('click', () => {
             runRealCProgram();
         });
@@ -492,30 +496,56 @@
 
         btnCopyCode.addEventListener('click', () => {
             if (!currentSourceCode) return;
-            const tempTextArea = document.createElement('textarea');
-            tempTextArea.value = currentSourceCode;
-            document.body.appendChild(tempTextArea);
-            tempTextArea.select();
-            try {
-                document.execCommand('copy');
-                showToast('Código C copiado al portapapeles');
-            } catch (err) {
-                showToast('No se pudo copiar el código');
-            }
-            document.body.removeChild(tempTextArea);
+            const textarea = document.createElement('textarea');
+            textarea.value = currentSourceCode;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('Código C copiado al portapapeles');
         });
 
-        function showToast(msg) {
-            toastNotification.textContent = msg;
-            toastNotification.classList.remove('opacity-0');
-            setTimeout(() => {
-                toastNotification.classList.add('opacity-0');
-            }, 2200);
+        // Permitir cargar un archivo .c manualmente desde el equipo si se abre sin servidor
+        fileInputC.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                currentSourceCode = ev.target.result;
+                currentFileName = file.name;
+                loadedFileName.textContent = currentFileName;
+                windowTitle.textContent = `bash — gcc ${currentFileName} -o solar && ./solar`;
+                sourceCodeDisplay.textContent = currentSourceCode;
+                showToast(`Archivo ${file.name} cargado`);
+                runRealCProgram();
+            };
+            reader.readAsText(file);
+        });
+
+        // Manejo de tecla Enter en el input de la terminal
+        function submitTerminalLine() {
+            if (inputResolver) {
+                const val = terminalInput.value.trim() || '0';
+                inputResolver(val);
+            }
         }
 
-        window.onload = () => {
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitTerminalLine();
+            }
+        });
+
+        btnMobileEnter.addEventListener('click', (e) => {
+            e.stopPropagation();
+            submitTerminalLine();
+        });
+
+        // Iniciar automáticamente al cargar la página
+        window.addEventListener('DOMContentLoaded', () => {
             runRealCProgram();
-        };
+        });
     </script>
 </body>
 </html>
