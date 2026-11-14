@@ -6,6 +6,8 @@
     <title>Terminal C - Calculadora de Potencial Solar</title>
     <!-- Tailwind CSS para diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Intérprete real de C/C++ en tiempo real con soporte bloqueante para scanf y usleep -->
+    <script src="https://cdn.jsdelivr.net/npm/JSCPP@2.0.9/dist/JSCPP.es5.min.js"></script>
     <!-- Fuente monoespaciada ideal para arte ASCII y caracteres Braille -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -292,33 +294,19 @@
         }
 
         /**
-         * Ejecuta el código C real compilándolo con GCC en la nube (Wandbox API)
-         * enviando progresivamente las entradas de stdin conforme el programa las solicita.
+         * Prepara el código C del repositorio para el entorno POSIX de JSCPP
+         * manteniendo intacta la lógica, textos, colores ANSI y tiempos de usleep/Sleep.
          */
-        async function compileAndRunGCC(sourceCode, stdinLines) {
-            // Inyectamos un pequeño wrapper de preprocesador para que stdout no haga buffering en pipes
-            const unbufferedPrefix = `#include <stdio.h>\n__attribute__((constructor)) static void _unbuf(void){ setvbuf(stdout, NULL, _IONBF, 0); }\n`;
-            const payload = {
-                compiler: 'gcc-head',
-                code: unbufferedPrefix + sourceCode,
-                stdin: stdinLines.join('\n') + (stdinLines.length > 0 ? '\n' : ''),
-                options: 'warning'
-            };
-
-            const res = await fetch('https://wandbox.org/api/compile.json', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) {
-                throw new Error(`Error de red del compilador (HTTP ${res.status})`);
-            }
-            return await res.json();
+        function prepareSourceForRuntime(rawCode) {
+            let code = rawCode;
+            // Reemplazar directivas específicas de Windows/Linux por soporte nativo de stdio/unistd
+            code = code.replace(/#ifdef\s+_WIN32[\s\S]*?#endif/g, '#include <unistd.h>\n#define PAUSA_MS(ms) usleep((ms) * 1000)');
+            return code;
         }
 
         /**
-         * Flujo principal: lee el .c externo, lo compila con GCC y maneja la E/S interactiva real
+         * Flujo principal: lee el archivo .c del repositorio y lo ejecuta paso a paso
+         * deteniéndose realmente en cada scanf() y respetando los usleep() del código.
          */
         async function runRealCProgram() {
             currentRunId++;
@@ -349,59 +337,97 @@
                 }
             }
 
-            // 2. Compilar y ejecutar el archivo .c en GCC real
-            setStatus(`Compilando ${currentFileName} con GCC...`, 'bg-blue-400');
-            renderStdoutChunk(`\x1b[36m$ gcc ${currentFileName} -o solar && ./solar\x1b[0m\n`, runId);
+            setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
 
-            let stdinHistory = [];
-            let printedLength = 0;
+            // 2. Configurar ejecución asíncrona paso a paso para detenerse en scanf() y usleep()
+            const executableCode = prepareSourceForRuntime(currentSourceCode);
+            let inputQueue = [];
+            let sleepUntil = 0;
+
+            const config = {
+                stdio: {
+                    write: function(s) {
+                        if (runId !== currentRunId) return;
+                        renderStdoutChunk(s, runId);
+                    },
+                    drain: function() {
+                        if (inputQueue.length > 0) {
+                            return inputQueue.shift();
+                        }
+                        return null;
+                    }
+                },
+                includes: {
+                    'unistd.h': {
+                        load: function(rt) {
+                            rt.regFunc(function(rt, _this, us) {
+                                const microseconds = us.v;
+                                if (microseconds > 0) {
+                                    sleepUntil = performance.now() + (microseconds / 1000);
+                                }
+                            }, 'global', 'usleep', ['int'], rt.intTypeLiteral);
+                        }
+                    }
+                },
+                unsigned_overflow: 'ignore'
+            };
 
             try {
-                while (runId === currentRunId) {
-                    const result = await compileAndRunGCC(currentSourceCode, stdinHistory);
-                    if (runId !== currentRunId) return;
+                // JSCPP.run con step: true devuelve un generador/controlador que avanza instrucción por instrucción
+                const debuggerInstance = JSCPP.run(executableCode, '', Object.assign({}, config, { debug: true }));
 
-                    // Si hubo error de compilación real en GCC, mostrarlo tal cual
-                    if (result.compiler_error) {
-                        setStatus('Error de compilación (GCC)', 'bg-red-500');
-                        renderStdoutChunk(`\n\x1b[31m${result.compiler_error}\x1b[0m\n`, runId);
-                        return;
+                async function stepLoop() {
+                    while (runId === currentRunId) {
+                        // Respetar el tiempo real de usleep() definido en el código C
+                        const now = performance.now();
+                        if (sleepUntil > now) {
+                            await new Promise(r => setTimeout(r, sleepUntil - now));
+                            if (runId !== currentRunId) return;
+                        }
+
+                        // Ejecutar un lote de instrucciones de C para mantener fluidez
+                        let status;
+                        for (let steps = 0; steps < 500; steps++) {
+                            status = debuggerInstance.next();
+                            if (status !== false || sleepUntil > performance.now()) {
+                                break;
+                            }
+                        }
+
+                        // Si el programa llegó a return 0 o terminó
+                        if (status !== false && status !== undefined) {
+                            // Si status es un número, es el código de salida de main()
+                            if (typeof status === 'number') {
+                                setStatus(`Ejecución finalizada (exit code ${status})`, 'bg-emerald-500');
+                                renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código ${status}]\x1b[0m\n`, runId);
+                                break;
+                            }
+                        }
+
+                        // Si el programa está bloqueado esperando entrada en scanf()
+                        if (debuggerInstance.isWaitingForInput && debuggerInstance.isWaitingForInput()) {
+                            setStatus('Esperando entrada en scanf()...', 'bg-amber-400');
+                            const userLine = await requestUserInput();
+                            if (runId !== currentRunId) return;
+
+                            appendCharToTerminal(`${userLine}\n`);
+                            // Entregar la línea completa con salto de línea al buffer de stdin de C
+                            for (const ch of (userLine + '\n')) {
+                                inputQueue.push(ch);
+                            }
+                            setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
+                        } else {
+                            // Ceder el hilo al navegador brevemente para renderizar el DOM
+                            await new Promise(r => setTimeout(r, 0));
+                        }
                     }
-
-                    const fullStdout = result.program_output || '';
-                    const newOutput = fullStdout.slice(printedLength);
-                    printedLength = fullStdout.length;
-
-                    if (newOutput.length > 0) {
-                        renderStdoutChunk(newOutput, runId);
-                    }
-
-                    // Detectar si el programa terminó su ejecución (exit status 0 o distinto)
-                    const hasMorePrompts = /[:?]\s*$/.test(fullStdout.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, ''));
-
-                    if (result.status === '0' && !hasMorePrompts) {
-                        setStatus('Ejecución finalizada (exit code 0)', 'bg-emerald-500');
-                        renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código 0]\x1b[0m\n`, runId);
-                        break;
-                    } else if (result.status !== '0' && result.status !== undefined && !hasMorePrompts) {
-                        setStatus(`Finalizado con código ${result.status}`, 'bg-amber-500');
-                        renderStdoutChunk(`\n\x1b[33m[Proceso terminado con código ${result.status}]\x1b[0m\n`, runId);
-                        break;
-                    }
-
-                    // Si el programa C está esperando un scanf(), pedimos la entrada en la terminal
-                    setStatus('Esperando entrada estándar (stdin)...', 'bg-amber-400');
-                    const userLine = await requestUserInput();
-                    if (runId !== currentRunId) return;
-
-                    appendCharToTerminal(`${userLine}\n`);
-                    stdinHistory.push(userLine);
-                    setStatus('Ejecutando siguiente instrucción en GCC...', 'bg-blue-400');
                 }
+
+                await stepLoop();
             } catch (error) {
                 if (runId !== currentRunId) return;
-                setStatus('Error de conexión con el compilador', 'bg-red-500');
-                renderStdoutChunk(`\n\x1b[31m[Error al ejecutar GCC]: ${error.message}\x1b[0m\n`, runId);
+                setStatus('Error de ejecución en C', 'bg-red-500');
+                renderStdoutChunk(`\n\x1b[31m[Error]: ${error.message || error}\x1b[0m\n`, runId);
             }
         }
 
