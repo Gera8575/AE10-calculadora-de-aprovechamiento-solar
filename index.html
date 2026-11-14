@@ -75,6 +75,15 @@
 
         <!-- Área de la Terminal Interactiva -->
         <div id="terminalContainer" class="bg-[#0c0e14] p-3 sm:p-5 h-[72vh] min-h-[450px] overflow-y-auto overflow-x-auto cursor-text relative" onclick="focusTerminalInput()">
+            <!-- Indicador visual de carga mientras se prepara/compila el código C -->
+            <div id="loadingOverlay" class="flex flex-col items-center justify-center h-full text-gray-400 space-y-3 select-none">
+                <div class="w-9 h-9 border-4 border-gray-700 border-t-emerald-500 rounded-full animate-spin"></div>
+                <div class="text-center space-y-1">
+                    <p id="loadingTitle" class="text-sm font-medium text-gray-200">Cargando y compilando código C...</p>
+                    <p id="loadingSubtitle" class="text-xs text-gray-500 font-mono">gcc -Wall -O2</p>
+                </div>
+            </div>
+
             <!-- Contenedor donde se renderiza la salida estándar (stdout) con soporte ANSI -->
             <pre id="terminalOutput" class="terminal-font text-[10px] sm:text-xs md:text-sm whitespace-pre text-gray-100 select-text"></pre>
             
@@ -92,7 +101,7 @@
             </div>
 
             <!-- Cursor bloque cuando está imprimiendo -->
-            <span id="blockCursor" class="inline-block w-2 h-4 bg-gray-300 cursor-blink align-middle"></span>
+            <span id="blockCursor" class="hidden w-2 h-4 bg-gray-300 cursor-blink align-middle"></span>
         </div>
 
         <!-- Barra inferior de estado y ayuda táctil para móviles -->
@@ -119,6 +128,9 @@
         // Referencias al DOM
         const terminalOutput = document.getElementById('terminalOutput');
         const terminalContainer = document.getElementById('terminalContainer');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingTitle = document.getElementById('loadingTitle');
+        const loadingSubtitle = document.getElementById('loadingSubtitle');
         const inputWrapper = document.getElementById('inputWrapper');
         const terminalInput = document.getElementById('terminalInput');
         const blockCursor = document.getElementById('blockCursor');
@@ -267,6 +279,22 @@
             statusIndicator.className = `w-2 h-2 rounded-full ${colorClass}`;
         }
 
+        function showLoading(title, subtitle) {
+            loadingTitle.textContent = title;
+            loadingSubtitle.textContent = subtitle || '';
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
+            blockCursor.classList.add('hidden');
+            blockCursor.classList.remove('inline-block');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+            loadingOverlay.classList.remove('flex');
+            blockCursor.classList.remove('hidden');
+            blockCursor.classList.add('inline-block');
+        }
+
         /**
          * Carga el archivo .c real desde el repositorio probando las rutas candidatas
          */
@@ -318,7 +346,7 @@
             currentBgColor = null;
             inputWrapper.classList.add('hidden');
             inputWrapper.classList.remove('inline-flex');
-            blockCursor.style.display = 'inline-block';
+            showLoading('Obteniendo archivo fuente del repositorio...', 'Buscando main.c / AE10_Calculadora_potencial_solar.c');
 
             // 1. Obtener el archivo .c del repositorio
             if (!currentSourceCode) {
@@ -327,6 +355,7 @@
                 if (runId !== currentRunId) return;
 
                 if (!fetched) {
+                    hideLoading();
                     setStatus('Archivo C no encontrado en el repositorio', 'bg-red-500');
                     renderStdoutChunk(
                         `\x1b[31mError: No se encontró 'main.c', 'main' ni 'AE10_Calculadora_potencial_solar.c' en esta carpeta.\x1b[0m\n` +
@@ -337,7 +366,14 @@
                 }
             }
 
+            showLoading(`Compilando y preparando ${currentFileName}...`, `gcc ${currentFileName} -o solar`);
+            setStatus(`Compilando ${currentFileName}...`, 'bg-amber-400');
+            // Permitir que el navegador pinte el estado de compilación antes de iniciar JSCPP
+            await new Promise(r => setTimeout(r, 60));
+            if (runId !== currentRunId) return;
+
             setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
+            let firstOutputReceived = false;
 
             // 2. Configurar ejecución asíncrona paso a paso para detenerse en scanf() y usleep()
             const executableCode = prepareSourceForRuntime(currentSourceCode);
@@ -348,6 +384,10 @@
                 stdio: {
                     write: function(s) {
                         if (runId !== currentRunId) return;
+                        if (!firstOutputReceived) {
+                            firstOutputReceived = true;
+                            hideLoading();
+                        }
                         renderStdoutChunk(s, runId);
                     },
                     drain: function() {
@@ -398,6 +438,10 @@
                         if (status !== false && status !== undefined) {
                             // Si status es un número, es el código de salida de main()
                             if (typeof status === 'number') {
+                                if (!firstOutputReceived) {
+                                    firstOutputReceived = true;
+                                    hideLoading();
+                                }
                                 setStatus(`Ejecución finalizada (exit code ${status})`, 'bg-emerald-500');
                                 renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código ${status}]\x1b[0m\n`, runId);
                                 break;
@@ -406,6 +450,10 @@
 
                         // Si el programa está bloqueado esperando entrada en scanf()
                         if (debuggerInstance.isWaitingForInput && debuggerInstance.isWaitingForInput()) {
+                            if (!firstOutputReceived) {
+                                firstOutputReceived = true;
+                                hideLoading();
+                            }
                             setStatus('Esperando entrada en scanf()...', 'bg-amber-400');
                             const userLine = await requestUserInput();
                             if (runId !== currentRunId) return;
@@ -426,6 +474,7 @@
                 await stepLoop();
             } catch (error) {
                 if (runId !== currentRunId) return;
+                hideLoading();
                 setStatus('Error de ejecución en C', 'bg-red-500');
                 renderStdoutChunk(`\n\x1b[31m[Error]: ${error.message || error}\x1b[0m\n`, runId);
             }
