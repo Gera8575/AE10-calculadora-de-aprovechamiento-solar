@@ -28,6 +28,12 @@ void ascii_typewriter(const char *str, int delay_us) {
     }
 }
 
+float CalcEnergía(float potencia, int sol, float perdida){
+    float energía;
+    energía = (potencia*sol*(1-perdida))/1000.0;
+    return (float)energía;
+}
+
 int main(void){
     const char *lineas[] = {
         "\n  ██████╗           ██╗                  ██╗                 ██╗                             \n",
@@ -56,16 +62,67 @@ int main(void){
         ascii_typewriter(lineas[i], 250);
     } printf("\033[?25h");
 
-    int tipo_p, horas, temp;
-    printf("¿Qué tipo de panel prefieres?");
-    printf("\n\033[48;5;220mPequeño  (300W)\033[0m");
-    printf("\n\033[48;5;214mEstandar (400W)\033[0m");
-    printf("\n\033[48;5;202mGrande   (500W)\033[0m");
-    printf("\nTipo de panel (Poner el número en Wats): ");
-        scanf(" %d", &tipo_p);
-    printf("¿Cuántas horas de sol hay al día en donde pondrás los paneles? ");
-        scanf(" %d", &horas);
-    printf("¿Qué temperatura hace en el lugar? (°C) ");
-        scanf(" %d", &temp);
+    int tipoPanel, sol, temp;
+    float potencia, perdida;
+    char continuar = 'n';
+    do{
+        if (continuar == 's'){
+            printf("\033[2J\033[H\n");
+        }
+        printf("¿Qué tipo de panel prefieres?");
+    printf("\n\033[48;5;220m1. Pequeño  (300W)\033[0m");
+    printf("\n\033[48;5;214m2. Estandar (400W)\033[0m");
+    printf("\n\033[48;5;202m3. Grande   (500W)\033[0m");
+    do{
+        printf("\nTipo de panel (1, 2 o 3): ");
+            scanf(" %d", &tipoPanel);
+        if(tipoPanel<1 || tipoPanel>3){
+            printf("Opción inválida");
+        }
+    }while(tipoPanel<1 || tipoPanel>3);
+    if(tipoPanel==1){
+        potencia = 300;
+    }else if(tipoPanel == 2){
+        potencia = 400;
+    }else if(tipoPanel == 3){
+        potencia = 500;
+    }
+    do{
+        printf("¿Cuántas horas de sol hay al día en donde pondrás los paneles? ");
+            scanf(" %d", &sol);
+        if(sol <= 0 || sol > 24){
+            printf("Cantidad de horas invalida");
+        }
+    }while(sol <= 0 || sol > 24);
+    do {
+        printf("¿Cuál es la temperatura ambiental? (°C) ");
+            scanf(" %d", &temp);
+        if(temp <-50 || temp >60){
+            printf("Temperatura inválida");
+        }
+    }while(temp <-50 || temp >60);
+    if(temp>=52){
+        printf("ADVERTENCIA: Temperatura demasiado alta");
+    }if(temp>25){
+        perdida = (temp-25)*0.004;
+    }else{
+        perdida = 0;
+    }
+
+    float energía = CalcEnergía(potencia, sol, perdida);
+    float energíaAnual = energía *365;
+    float porcentajePerdida = perdida*100;
+
+    printf("\n============================== RESUMEN ==============================");
+    printf("\nPorcentaje de energía perdida por calor al día: %8.3f", porcentajePerdida);
+    printf("\nEnergía generada al día en kWh:                 %8.2f", energía);
+    printf("\nEnergía generada en un año en kWh:              %8.3f", energíaAnual);
+    printf("\n=====================================================================");    
+    printf("\n¿Desea realizar otro cáluclo? (s/n) ");
+        scanf(" %c", &continuar);
+}while(continuar == 's');
+    if(continuar == 'n'){
+        printf("\033[48;5;214m¡Gracias por utilizar la calculadora solar!\033[0m");
+    }
     return 0;
 }
