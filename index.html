@@ -1,59 +1,121 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calculadora de potencial solar</title>
+<title>Calculadora de Potencial Solar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --page:#e9e6df; --ink:#2b2a27; --bar:#cfcac0; --bg:#17191c; --fg:#d8dadd; --accent:#e5a93b; }
-  @media (prefers-color-scheme: dark) { :root { --page:#0f1012; --ink:#cfd1d4; --bar:#26282c; } }
+  :root { --ink:#18181b; --paper:#fffdf7; --amber:#fbbf24; --amber-soft:#fde68a; --mint:#6ee7b7; --screen:#121316; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--page); color:var(--ink); font:14px "Segoe UI",system-ui,sans-serif;
-         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 12px; gap:14px; }
-  .win, details { width:min(100%,980px); }
-  .win { border-radius:10px; overflow:hidden; background:var(--bg); box-shadow:0 10px 30px rgba(0,0,0,.25); }
-  .bar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bar); }
-  .dot { width:11px; height:11px; border-radius:50%; background:#e0524a; }
-  .dot:nth-child(2){background:#e5b53b} .dot:nth-child(3){background:#4caf6a}
-  .t { flex:1; margin-left:6px; }
-  button { font:inherit; color:inherit; background:transparent; border:1px solid currentColor;
-           border-radius:5px; padding:2px 10px; cursor:pointer; }
-  button:focus-visible, #in:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  #term { color:var(--fg); padding:14px 16px; height:min(75vh,720px); overflow:auto; cursor:text;
-          font:13px/1.15 "DejaVu Sans Mono","Cascadia Mono",Menlo,Consolas,"Noto Sans Mono",monospace; }
-  #out { margin:0; font:inherit; white-space:pre; }
-  #in { font:inherit; color:var(--accent); background:transparent; border:0; padding:0; width:1ch; caret-color:var(--accent); }
-  details pre { overflow:auto; max-height:360px; padding:12px; border-radius:8px; background:var(--bg); color:var(--fg);
-                font:12px/1.4 "DejaVu Sans Mono",Menlo,Consolas,monospace; }
-  summary { cursor:pointer; }
+  body {
+    margin: 0; min-height: 100vh; padding: 32px 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: "Space Mono", ui-monospace, monospace; color: var(--ink);
+    background-color: #fef9c3;
+    background-image: radial-gradient(var(--ink) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .wrap { width: min(100%, 1100px); display: flex; flex-direction: column; gap: 20px; }
+
+  /* Bloques neo-brutalistas: borde grueso y sombra dura */
+  .card { background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); border-radius: 16px; }
+
+  header.card { padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: var(--amber);
+          border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); }
+  .logo svg { width: 24px; height: 24px; }
+  .badge { display: inline-block; margin-bottom: 4px; padding: 2px 8px; background: var(--mint); border: 1px solid var(--ink);
+           border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  h1 { margin: 0; font-family: Syne, sans-serif; font-weight: 800; font-size: clamp(20px, 3vw, 26px); letter-spacing: -.01em; line-height: 1; }
+
+  .btn { font: 700 12px "Space Mono", monospace; color: var(--ink); background: var(--amber); cursor: pointer;
+         padding: 8px 16px; border: 2.5px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink);
+         display: inline-flex; align-items: center; gap: 6px;
+         transition: transform .08s ease, box-shadow .08s ease, background-color .15s ease; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn:hover { background: #fcd34d; transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  .btn:focus-visible, #in:focus-visible, summary:focus-visible { outline: 3px solid #0ea5e9; outline-offset: 3px; }
+
+  .panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 2px solid var(--ink);
+          border-radius: 8px; font-size: 12px; font-weight: 700; background: #f4f4f5; }
+  .pill.file { background: var(--amber-soft); }
+  #dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink); background: #10b981; }
+
+  /* Pantalla oscura de alto contraste */
+  #term { background: var(--screen); color: #f4f4f5; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #27272a;
+          border-radius: 12px; padding: 18px 20px; height: min(64vh, 640px); min-height: 380px; overflow: auto; cursor: text;
+          font: 13px/1.3 "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, "Noto Sans Mono", monospace; }
+  #out { margin: 0; font: inherit; white-space: pre; }
+  #in { font: inherit; font-weight: 700; color: var(--ink); background: #facc15; caret-color: var(--ink);
+        border: 2px solid #09090b; border-radius: 6px; padding: 0 6px; width: 6ch; min-width: 6ch;
+        box-shadow: 2px 2px 0 #000; }
+  .hint { padding: 0 4px; font-size: 12px; font-weight: 700; color: #3f3f46; }
+
+  details.card { padding: 12px 16px; }
+  summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+  #fuente { margin: 12px 0 0; padding: 14px; max-height: 360px; overflow: auto; background: var(--screen); color: #f4f4f5;
+            border: 2.5px solid var(--ink); border-radius: 10px;
+            font: 12px/1.4 "DejaVu Sans Mono", Menlo, Consolas, monospace; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--ink); }
+  ::-webkit-scrollbar-thumb { background: #facc15; border: 2px solid var(--ink); }
 </style>
 </head>
 <body>
-<div class="win">
-  <div class="bar">
-    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    <span class="t" id="titulo"></span>
-    <button id="restart" type="button">Reiniciar</button>
-  </div>
-  <div id="term" aria-live="polite"><pre id="out"></pre></div>
+<div class="wrap">
+  <header class="card">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      </div>
+      <div>
+        <span class="badge">Programa en C · WebAssembly</span>
+        <h1>Calculadora de Potencial Solar</h1>
+      </div>
+    </div>
+    <button id="restart" class="btn" type="button">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      <span>Reiniciar</span>
+    </button>
+  </header>
+
+  <section class="card panel">
+    <div class="bar">
+      <span class="pill"><span id="dot"></span><span id="estado">Listo</span></span>
+      <span class="pill file" id="titulo"></span>
+    </div>
+    <div id="term" aria-live="polite"><pre id="out"></pre></div>
+    <div class="hint">Haz clic en la pantalla para escribir y pulsa Enter para confirmar.</div>
+  </section>
+
+  <details class="card">
+    <summary>Ver el código fuente que se está ejecutando</summary>
+    <pre id="fuente">Cargando…</pre>
+  </details>
 </div>
-<details>
-  <summary>Ver el código fuente que se está ejecutando</summary>
-  <pre id="fuente">Cargando…</pre>
-</details>
- 
+
 <script>
 const FUENTE = 'main.c';   // mismo nombre que en build.sh
 document.getElementById('titulo').textContent = FUENTE;
- 
+
 const term = document.getElementById('term'), out = document.getElementById('out');
+const dot = document.getElementById('dot'), estadoTxt = document.getElementById('estado');
 let style = '', span = null, esc = '', activeInput = null, sesion = 0, scrollPend = false;
- 
+
+function estado(texto, color) { estadoTxt.textContent = texto; dot.style.background = color; }
+
 fetch(FUENTE).then(r => r.ok ? r.text() : Promise.reject())
   .then(t => document.getElementById('fuente').textContent = t)
   .catch(() => document.getElementById('fuente').textContent = 'No se pudo cargar ' + FUENTE);
- 
+
 /* ---------- Render ANSI ---------- */
 function color256(n) {
   if (n < 16 || n > 231) return '#888';
@@ -88,7 +150,7 @@ function feed(s) {                               // acepta secuencias partidas e
   }
   if (!scrollPend) { scrollPend = true; requestAnimationFrame(() => { scrollPend = false; term.scrollTop = term.scrollHeight; }); }
 }
- 
+
 /* ---------- Entrada (lo que usa scanf) ---------- */
 function leerLinea(id) {
   return new Promise(resolve => {
@@ -96,26 +158,29 @@ function leerLinea(id) {
     input.id = 'in'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
     input.setAttribute('aria-label', 'Respuesta');
     span = null; out.appendChild(input); activeInput = input; input.focus();
-    input.addEventListener('input', () => input.style.width = Math.max(1, input.value.length + 1) + 'ch');
+    if (id === sesion) estado('Esperando tu respuesta', '#facc15');
+    input.addEventListener('input', () => input.style.width = Math.max(6, input.value.length + 1) + 'ch');
     input.addEventListener('keydown', e => {
       if (e.key !== 'Enter' || id !== sesion) return;
       const v = input.value; input.remove(); activeInput = null;
+      estado('Ejecutando', '#38bdf8');
       feed(v + '\n'); resolve(v);
     });
   });
 }
- 
+
 /* ---------- Carga y ejecución del .wasm ---------- */
 const cargarScript = () => new Promise((ok, fallo) => {
   if (window.crearPrograma) return ok();
   const s = document.createElement('script');
   s.src = 'programa.js'; s.onload = ok; s.onerror = fallo; document.head.appendChild(s);
 });
- 
+
 async function ejecutar() {
   const id = ++sesion;
   if (activeInput) { activeInput.remove(); activeInput = null; }
   out.textContent = ''; style = ''; span = null; esc = '';
+  estado('Ejecutando', '#38bdf8');
   const dec = new TextDecoder();
   try {
     await cargarScript();
@@ -123,14 +188,17 @@ async function ejecutar() {
       leerLinea: () => leerLinea(id),
       print:    t => { if (id === sesion) feed(t + '\n'); },
       printErr: t => { if (id === sesion) feed(t + '\n'); },
-      onExit: code => { if (id === sesion) feed('\n[Programa terminado con código ' + code + ']\n'); },
+      onExit: code => { if (id === sesion) { feed('\n[Programa terminado con código ' + code + ']\n'); estado('Terminado', '#a1a1aa'); } },
     };
     const salida = c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); };
     cfg.preRun = [m => { if (m.FS) m.FS.init(null, salida, salida); }];
     await crearPrograma(cfg);
   } catch (e) {
-    if (id === sesion) feed('No se pudo cargar programa.js / programa.wasm.\n' +
-      'Se generan al compilar (build.sh o GitHub Actions) y la página debe abrirse por http(s), no con file://.\n');
+    if (id === sesion) {
+      estado('Error', '#ef4444');
+      feed('No se pudo cargar programa.js / programa.wasm.\n' +
+        'Se generan al compilar (build.sh o GitHub Actions) y la página debe abrirse por http(s), no con file://.\n');
+    }
   }
 }
 document.getElementById('restart').onclick = ejecutar;
