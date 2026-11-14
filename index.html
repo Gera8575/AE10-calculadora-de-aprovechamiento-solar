@@ -1,202 +1,521 @@
-<!doctype html>
-<html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Calculadora de potencial solar</title>
-    <style>body {
-  font-family: arial;
-  margin: 0;
-  padding: none;
-}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal C - Calculadora de Potencial Solar</title>
+    <!-- Tailwind CSS para diseño moderno y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuente monoespaciada ideal para arte ASCII y caracteres Braille -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+        }
+        .terminal-font {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-variant-ligatures: none;
+            line-height: 1.25;
+        }
+        /* Barra de desplazamiento personalizada para la terminal */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+        /* Cursor parpadeante de consola */
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: blink 1s infinite;
+        }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 md:p-6">
 
-.emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-div.emscripten { text-align: center; }
-div.emscripten_border { border: 1px solid black; }
-/* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-canvas.emscripten { border: 0px none; background-color: black; }
+    <!-- Contenedor principal tipo ventana de escritorio / IDE -->
+    <div class="w-full max-w-6xl bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+        
+        <!-- Barra superior de la ventana (estilo macOS/Linux) -->
+        <div class="bg-gray-950 px-4 py-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+                <span class="ml-3 text-xs sm:text-sm font-medium text-gray-400 truncate">
+                    bash — gcc AE10_Calculadora_potencial_solar.c -o solar && ./solar
+                </span>
+            </div>
 
-#emscripten_logo {
-  display: inline-block;
-  margin: 0;
-  padding: 6px;
-  width: 265px;
-}
+            <!-- Botones de control -->
+            <div class="flex items-center space-x-2">
+                <label for="fileInputC" class="cursor-pointer px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition flex items-center gap-1.5" title="Cargar archivo .c local">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span class="hidden sm:inline">Cargar .c</span>
+                </label>
+                <input type="file" id="fileInputC" accept=".c" class="hidden" />
 
-.spinner {
-  height: 30px;
-  width: 30px;
-  margin: 0;
-  margin-top: 20px;
-  margin-left: 20px;
-  display: inline-block;
-  vertical-align: top;
+                <button id="btnToggleCode" class="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    <span>Ver Código C</span>
+                </button>
+                <button id="btnRestart" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Compilar y Ejecutar</span>
+                </button>
+            </div>
+        </div>
 
-  -webkit-animation: rotation .8s linear infinite;
-  -moz-animation: rotation .8s linear infinite;
-  -o-animation: rotation .8s linear infinite;
-  animation: rotation 0.8s linear infinite;
+        <!-- Visor colapsable del código fuente obtenido del archivo .c -->
+        <div id="codeDrawer" class="hidden bg-gray-950 border-b border-gray-800 p-4 max-h-72 overflow-y-auto">
+            <div class="flex justify-between items-center mb-2">
+                <span id="loadedFileName" class="text-xs font-semibold uppercase tracking-wider text-blue-400">AE10_Calculadora_potencial_solar.c</span>
+                <button id="btnCopyCode" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded transition">Copiar código</button>
+            </div>
+            <pre id="sourceCodeDisplay" class="terminal-font text-xs text-gray-300 overflow-x-auto">Cargando archivo .c desde el repositorio...</pre>
+        </div>
+        </div>
 
-  border-left: 5px solid rgb(235, 235, 235);
-  border-right: 5px solid rgb(235, 235, 235);
-  border-bottom: 5px solid rgb(235, 235, 235);
-  border-top: 5px solid rgb(120, 120, 120);
+        <!-- Visor colapsable del código fuente original en C -->
+        <div id="codeDrawer" class="hidden bg-gray-950 border-b border-gray-800 p-4 max-h-72 overflow-y-auto">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-blue-400">AE10_Calculadora_potencial_solar.c</span>
+                <button id="btnCopyCode" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded transition">Copiar código</button>
+            </div>
+            <pre id="sourceCodeDisplay" class="terminal-font text-xs text-gray-300 overflow-x-auto"></pre>
+        </div>
 
-  border-radius: 100%;
-  background-color: rgb(189, 215, 46);
-}
+        <!-- Área de la Terminal Interactiva -->
+        <div id="terminalContainer" class="bg-[#0c0e14] p-3 sm:p-5 h-[72vh] min-h-[450px] overflow-y-auto overflow-x-auto cursor-text relative" onclick="focusTerminalInput()">
+            <!-- Contenedor donde se renderiza la salida estándar (stdout) con soporte ANSI -->
+            <pre id="terminalOutput" class="terminal-font text-[10px] sm:text-xs md:text-sm whitespace-pre text-gray-100 select-text"></pre>
+            
+            <!-- Línea de entrada activa (stdin) para scanf -->
+            <div id="inputWrapper" class="hidden items-center terminal-font text-xs sm:text-sm mt-1">
+                <input 
+                    type="text" 
+                    id="terminalInput" 
+                    autocomplete="off" 
+                    spellcheck="false"
+                    inputmode="numeric"
+                    class="bg-transparent border-none outline-none text-emerald-400 font-semibold w-48 sm:w-64 caret-emerald-400"
+                    placeholder="Escribe un número y presiona Enter..."
+                />
+            </div>
 
-@-webkit-keyframes rotation {
-  from {-webkit-transform: rotate(0deg);}
-  to {-webkit-transform: rotate(360deg);}
-}
-@-moz-keyframes rotation {
-  from {-moz-transform: rotate(0deg);}
-  to {-moz-transform: rotate(360deg);}
-}
-@-o-keyframes rotation {
-  from {-o-transform: rotate(0deg);}
-  to {-o-transform: rotate(360deg);}
-}
-@keyframes rotation {
-  from {transform: rotate(0deg);}
-  to {transform: rotate(360deg);}
-}
+            <!-- Cursor bloque cuando está imprimiendo -->
+            <span id="blockCursor" class="inline-block w-2 h-4 bg-gray-300 cursor-blink align-middle"></span>
+        </div>
 
-#status {
-  display: inline-block;
-  vertical-align: top;
-  margin-top: 30px;
-  margin-left: 20px;
-  font-weight: bold;
-  color: rgb(65, 65, 65);
-}
-
-#progress {
-  height: 20px;
-  width: 300px;
-}
-
-#controls {
-  display: inline-block;
-  float: right;
-  vertical-align: top;
-  margin-top: 30px;
-  margin-right: 20px;
-}
-
-#output {
-  width: 100%;
-  height: 200px;
-  margin: 0 auto;
-  margin-top: 10px;
-  border-left: 0px;
-  border-right: 0px;
-  padding-left: 0px;
-  padding-right: 0px;
-  display: block;
-  background-color: black;
-  color: white;
-  font-family: 'Lucida Console', Monaco, monospace;
-  outline: none;
-}
-</style>
-  </head>
-  <body>
-    <a href="https://gera8575.github.io/AE10-calculadora-de-aprovechamiento-solar/"><img id="emscripten_logo" src="https://raw.githubusercontent.com/Gera8575/AE10-calculadora-de-aprovechamiento-solar/refs/heads/main/Calc%20logo.png"></a>
-
-    <div class="spinner" id='spinner'></div>
-    <div class="emscripten" id="status">Downloading...</div>
-
-    <span id='controls'>
-      <span><input type="checkbox" id="resize">Resize canvas</span>
-      <span><input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer &nbsp;&nbsp;&nbsp;</span>
-      <span><input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked,
-                                                                                document.getElementById('resize').checked)">
-      </span>
-    </span>
-
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden=1></progress>
+        <!-- Barra inferior de estado y ayuda táctil para móviles -->
+        <div class="bg-gray-950 px-4 py-2.5 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
+            <div class="flex items-center gap-2">
+                <span id="statusIndicator" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span id="statusText">Listo</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="hidden sm:inline">Tip: Haz clic en cualquier parte de la consola para escribir.</span>
+                <button id="btnMobileEnter" class="sm:hidden px-3 py-1 bg-blue-600 text-white rounded font-medium">Enviar (Enter)</button>
+            </div>
+        </div>
     </div>
 
-    <div class="emscripten_border">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    <!-- Notificación flotante (reemplazo elegante de alert) -->
+    <div id="toastNotification" class="fixed bottom-5 right-5 bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-lg shadow-lg text-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        Código copiado al portapapeles
     </div>
-    <textarea id="output" rows="8"></textarea>
 
-    <script type='text/javascript'>
-      var statusElement = document.getElementById('status');
-      var progressElement = document.getElementById('progress');
-      var spinnerElement = document.getElementById('spinner');
-      var canvasElement = document.getElementById('canvas');
-      var outputElement = document.getElementById('output');
-      if (outputElement) outputElement.value = ''; // clear browser cache
+    <script>
+        // Ruta relativa al archivo .c dentro del mismo repositorio
+        const C_FILE_PATH = './AE10_Calculadora_potencial_solar.c';
 
-      // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-      // application robust, you may want to override this behavior before shipping!
-      // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-      canvasElement.addEventListener('webglcontextlost', (e) => {
-        alert('WebGL context lost. You will need to reload the page.');
-        e.preventDefault();
-      }, false);
+        // Referencias al DOM
+        const terminalOutput = document.getElementById('terminalOutput');
+        const terminalContainer = document.getElementById('terminalContainer');
+        const inputWrapper = document.getElementById('inputWrapper');
+        const terminalInput = document.getElementById('terminalInput');
+        const blockCursor = document.getElementById('blockCursor');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const btnRestart = document.getElementById('btnRestart');
+        const btnToggleCode = document.getElementById('btnToggleCode');
+        const codeDrawer = document.getElementById('codeDrawer');
+        const sourceCodeDisplay = document.getElementById('sourceCodeDisplay');
+        const loadedFileName = document.getElementById('loadedFileName');
+        const btnCopyCode = document.getElementById('btnCopyCode');
+        const btnMobileEnter = document.getElementById('btnMobileEnter');
+        const fileInputC = document.getElementById('fileInputC');
+        const toastNotification = document.getElementById('toastNotification');
 
-      var setStatus = (text) => {
-        if (!setStatus.last) setStatus.last = { time: Date.now(), text: '' };
-        if (text === setStatus.last.text) return;
-        var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-        var now = Date.now();
-        // if this is a progress update, skip it if too soon
-        if (m && now - setStatus.last.time < 30) return;
-        setStatus.last.time = now;
-        setStatus.last.text = text;
-        if (m) {
-          text = m[1];
-          progressElement.value = parseInt(m[2])*100;
-          progressElement.max = parseInt(m[4])*100;
-          progressElement.hidden = false;
-          spinnerElement.hidden = false;
-        } else {
-          progressElement.value = null;
-          progressElement.max = null;
-          progressElement.hidden = true;
-          if (!text) spinnerElement.style.display = 'none';
-        }
-        statusElement.innerHTML = text;
-      };
+        // Estado de ejecución
+        let currentSourceCode = '';
+        let currentFileName = 'AE10_Calculadora_potencial_solar.c';
+        let currentRunId = 0;
+        let currentSpan = null;
+        let activeStyle = '';
+        let inputResolver = null;
+        let stdinHistory = []; // Almacena las entradas enviadas al compilador real
 
-      var Module = {
-        print(...args) {
-          console.log(...args);
-          // These replacements are necessary if you render to raw HTML
-          //text = text.replace(/&/g, "&amp;");
-          //text = text.replace(/</g, "&lt;");
-          //text = text.replace(/>/g, "&gt;");
-          //text = text.replace('\n', '<br>', 'g');
-          if (outputElement) {
-            var text = args.join(' ');
-            outputElement.value += text + "\n";
-            outputElement.scrollTop = outputElement.scrollHeight; // focus on bottom
-          }
-        },
-        canvas: canvasElement,
-        setStatus: setStatus,
-        totalDependencies: 0,
-        monitorRunDependencies(left) {
-          this.totalDependencies = Math.max(this.totalDependencies, left);
-          setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
-        }
-      };
-      setStatus('Downloading...');
-      window.onerror = window.onunhandledrejection = () => {
-        // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-        setStatus('Exception thrown, see JavaScript console');
-        spinnerElement.style.display = 'none';
-        setStatus = (text) => {
-          if (text) console.error('[post-exception status] ' + text);
+        /**
+         * Mapeo de códigos ANSI 256-color y colores estándar
+         */
+        const ANSI_256_BG = {
+            220: 'background-color: #ffd700; color: #000000; font-weight: 600; padding: 1px 6px; border-radius: 3px;',
+            214: 'background-color: #ffaf00; color: #000000; font-weight: 600; padding: 1px 6px; border-radius: 3px;',
+            202: 'background-color: #ff5f00; color: #ffffff; font-weight: 600; padding: 1px 6px; border-radius: 3px;'
         };
-      };
+
+        function ensureStyledSpan() {
+            if (!currentSpan) {
+                currentSpan = document.createElement('span');
+                if (activeStyle) {
+                    currentSpan.setAttribute('style', activeStyle);
+                }
+                terminalOutput.appendChild(currentSpan);
+            }
+            return currentSpan;
+        }
+
+        function handleAnsiEscape(seq) {
+            if (seq === '\x1b[0m') {
+                activeStyle = '';
+                currentSpan = null;
+            } else if (seq === '\x1b[31m') {
+                activeStyle = 'color: #f87171;';
+                currentSpan = null;
+            } else if (seq === '\x1b[32m') {
+                activeStyle = 'color: #34d399;';
+                currentSpan = null;
+            } else if (seq === '\x1b[33m') {
+                activeStyle = 'color: #facc15;';
+                currentSpan = null;
+            } else if (seq === '\x1b[36m') {
+                activeStyle = 'color: #38bdf8;';
+                currentSpan = null;
+            } else if (seq === '\x1b[?25l') {
+                blockCursor.classList.add('hidden');
+            } else if (seq === '\x1b[?25h') {
+                blockCursor.classList.remove('hidden');
+            } else if (seq === '\x1b[2J' || seq === '\x1b[H') {
+                terminalOutput.innerHTML = '';
+                currentSpan = null;
+            } else {
+                const match256 = seq.match(/^\x1b\[48;5;(\d+)m$/);
+                if (match256) {
+                    const code = parseInt(match256[1], 10);
+                    activeStyle = ANSI_256_BG[code] || '';
+                    currentSpan = null;
+                }
+            }
+        }
+
+        function putchar(ch) {
+            const span = ensureStyledSpan();
+            span.textContent += ch;
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function setStatus(text, colorClass) {
+            statusText.textContent = text;
+            statusIndicator.className = `w-2 h-2 rounded-full ${colorClass}`;
+        }
+
+        /**
+         * Carga el archivo .c real desde el repositorio mediante fetch()
+         */
+        async function fetchCFileFromRepo() {
+            try {
+                const response = await fetch(C_FILE_PATH, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: No se encontró ${C_FILE_PATH}`);
+                }
+                const code = await response.text();
+                currentSourceCode = code;
+                currentFileName = 'AE10_Calculadora_potencial_solar.c';
+                loadedFileName.textContent = currentFileName;
+                sourceCodeDisplay.textContent = code;
+                return code;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        /**
+         * Envía el código C real y la entrada estándar (stdin) acumulada a GCC en la nube (Wandbox API)
+         */
+        async function compileAndExecuteGCC(sourceCode, stdinStr) {
+            const response = await fetch('https://wandbox.org/api/compile.json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    compiler: 'gcc-head',
+                    code: sourceCode,
+                    stdin: stdinStr,
+                    options: 'warning'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error de conexión con el servidor GCC (${response.status})`);
+            }
+            return await response.json();
+        }
+
+        /**
+         * Imprime la salida real recibida desde stdout del binario compilado en C
+         */
+        async function renderStdoutChunk(text, runId, animateTypewriter) {
+            let i = 0;
+            let charCounter = 0;
+            while (i < text.length) {
+                if (runId !== currentRunId) return;
+
+                if (text[i] === '\x1b') {
+                    let seq = '';
+                    while (i < text.length) {
+                        seq += text[i];
+                        const ch = text[i];
+                        i++;
+                        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+                            break;
+                        }
+                    }
+                    handleAnsiEscape(seq);
+                } else {
+                    putchar(text[i]);
+                    i++;
+                    charCounter++;
+                    // Conserva el efecto fluido de tu ascii_typewriter en la salida real
+                    if (animateTypewriter && charCounter % 12 === 0) {
+                        await sleep(3);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Espera la entrada del usuario para alimentar el stdin real de scanf()
+         */
+        function waitForUserStdin(runId) {
+            return new Promise((resolve) => {
+                if (runId !== currentRunId) return;
+
+                setStatus('Esperando entrada estándar (stdin)...', 'bg-amber-400');
+                blockCursor.classList.add('hidden');
+                
+                terminalOutput.appendChild(inputWrapper);
+                inputWrapper.classList.remove('hidden');
+                inputWrapper.classList.add('inline-flex');
+                terminalInput.value = '';
+                terminalInput.focus();
+                terminalContainer.scrollTop = terminalContainer.scrollHeight;
+
+                inputResolver = (rawValue) => {
+                    inputWrapper.classList.add('hidden');
+                    inputWrapper.classList.remove('inline-flex');
+                    if (inputWrapper.parentNode === terminalOutput) {
+                        terminalOutput.removeChild(inputWrapper);
+                    }
+                    
+                    // Eco visual de la entrada escrita por el usuario
+                    renderStdoutChunk(`\x1b[32m${rawValue}\x1b[0m\n`, runId, false);
+                    blockCursor.classList.remove('hidden');
+                    resolve(rawValue);
+                };
+            });
+        }
+
+        /**
+         * Flujo real de compilación y ejecución interactiva del archivo .c del repositorio
+         */
+        async function runRealCProgram() {
+            const runId = ++currentRunId;
+            inputResolver = null;
+            activeStyle = '';
+            currentSpan = null;
+            stdinHistory = [];
+
+            if (inputWrapper.parentNode === terminalOutput) {
+                terminalContainer.appendChild(inputWrapper);
+            }
+            inputWrapper.classList.add('hidden');
+            terminalOutput.innerHTML = '';
+
+            // 1. Obtener el archivo .c real del repositorio si aún no está en memoria
+            if (!currentSourceCode) {
+                setStatus(`Leyendo ${C_FILE_PATH}...`, 'bg-blue-400');
+                await renderStdoutChunk(`\x1b[36m$ cat ${C_FILE_PATH}\x1b[0m\n`, runId, false);
+                const fetched = await fetchCFileFromRepo();
+                if (runId !== currentRunId) return;
+
+                if (!fetched) {
+                    setStatus('Archivo .c no encontrado en ruta relativa', 'bg-red-500');
+                    await renderStdoutChunk(
+                        `\x1b[31mError: No se pudo cargar '${C_FILE_PATH}' vía HTTP.\x1b[0m\n` +
+                        `Asegúrate de abrir este HTML desde un servidor web o GitHub Pages junto a tu archivo .c,\n` +
+                        `o usa el botón superior \x1b[33m"Cargar .c"\x1b[0m para seleccionar tu archivo localmente.\n`,
+                        runId,
+                        false
+                    );
+                    return;
+                }
+            }
+
+            // 2. Compilar y ejecutar el archivo .c en GCC real
+            setStatus(`Compilando ${currentFileName} con GCC...`, 'bg-blue-400');
+            await renderStdoutChunk(`\x1b[36m$ gcc ${currentFileName} -o app && ./app\x1b[0m\n`, runId, false);
+
+            let previousStdoutLength = 0;
+            let isFirstPass = true;
+
+            try {
+                while (runId === currentRunId) {
+                    const stdinPayload = stdinHistory.length > 0 ? stdinHistory.join('\n') + '\n' : '';
+                    const result = await compileAndExecuteGCC(currentSourceCode, stdinPayload);
+                    if (runId !== currentRunId) return;
+
+                    // Mostrar errores o advertencias reales del compilador GCC si existen
+                    if (result.compiler_error) {
+                        setStatus('Error de compilación GCC', 'bg-red-500');
+                        await renderStdoutChunk(`\x1b[31m${result.compiler_error}\x1b[0m\n`, runId, false);
+                        return;
+                    }
+
+                    const fullStdout = result.program_output || '';
+                    // Extraer únicamente la salida nueva producida tras el último scanf
+                    const newOutput = fullStdout.slice(previousStdoutLength);
+                    previousStdoutLength = fullStdout.length;
+
+                    if (newOutput.length > 0) {
+                        setStatus('Ejecutando binario...', 'bg-emerald-400');
+                        await renderStdoutChunk(newOutput, runId, isFirstPass);
+                        isFirstPass = false;
+                    }
+
+                    // Detectar si el binario real está esperando entrada por teclado (ej. termina en ': ' o '? ')
+                    // y aún no ha finalizado normalmente, o si el programa terminó su ejecución.
+                    const needsMoreInput = /[:?]\s*$/.test(fullStdout) && stdinHistory.length < 10;
+
+                    if (needsMoreInput) {
+                        const userLine = await waitForUserStdin(runId);
+                        if (runId !== currentRunId) return;
+                        stdinHistory.push(userLine);
+                        setStatus('Procesando entrada en binario C...', 'bg-blue-400');
+                    } else {
+                        // El programa en C llegó a return 0
+                        const exitCode = result.status !== undefined ? result.status : '0';
+                        await renderStdoutChunk(
+                            `\n\x1b[36m[Binario finalizado con código de salida ${exitCode}]\x1b[0m\n`,
+                            runId,
+                            false
+                        );
+                        setStatus(`Finalizado (exit code ${exitCode})`, 'bg-gray-500');
+                        break;
+                    }
+                }
+            } catch (err) {
+                if (runId !== currentRunId) return;
+                setStatus('Error de ejecución remota', 'bg-red-500');
+                await renderStdoutChunk(`\x1b[31mError al ejecutar GCC: ${err.message}\x1b[0m\n`, runId, false);
+            }
+        }
+
+        // Permitir cargar un archivo .c manualmente desde el equipo si se abre sin servidor
+        fileInputC.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                currentSourceCode = ev.target.result;
+                currentFileName = file.name;
+                loadedFileName.textContent = currentFileName;
+                sourceCodeDisplay.textContent = currentSourceCode;
+                showToast(`Archivo ${file.name} cargado`);
+                runRealCProgram();
+            };
+            reader.readAsText(file);
+        });
+
+        // Manejo de tecla Enter en el input de la terminal
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && inputResolver) {
+                e.preventDefault();
+                const val = terminalInput.value;
+                const resolver = inputResolver;
+                inputResolver = null;
+                resolver(val);
+            }
+        });
+
+        btnMobileEnter.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (inputResolver) {
+                const val = terminalInput.value;
+                const resolver = inputResolver;
+                inputResolver = null;
+                resolver(val);
+            }
+        });
+
+        function focusTerminalInput() {
+            if (!inputWrapper.classList.contains('hidden')) {
+                terminalInput.focus();
+            }
+        }
+
+        btnRestart.addEventListener('click', () => {
+            runRealCProgram();
+        });
+
+        btnToggleCode.addEventListener('click', () => {
+            codeDrawer.classList.toggle('hidden');
+        });
+
+        btnCopyCode.addEventListener('click', () => {
+            if (!currentSourceCode) return;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = currentSourceCode;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Código C copiado al portapapeles');
+            } catch (err) {
+                showToast('No se pudo copiar el código');
+            }
+            document.body.removeChild(tempTextArea);
+        });
+
+        function showToast(msg) {
+            toastNotification.textContent = msg;
+            toastNotification.classList.remove('opacity-0');
+            setTimeout(() => {
+                toastNotification.classList.add('opacity-0');
+            }, 2200);
+        }
+
+        window.onload = () => {
+            runRealCProgram();
+        };
     </script>
-    <script async type="text/javascript" src="index.js"></script>
-  </body>
+</body>
 </html>
