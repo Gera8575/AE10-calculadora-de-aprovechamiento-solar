@@ -218,11 +218,10 @@
         }
 
         /**
-         * Renderiza salida stdout real emitida por el binario C compilado
+         * Renderiza salida stdout real emitida por el binario C compilado sin añadir retardos artificiales
          */
-        async function renderStdoutChunk(text, runId, animate = true) {
+        function renderStdoutChunk(text, runId) {
             let i = 0;
-            let charCounter = 0;
             while (i < text.length) {
                 if (runId !== currentRunId) return;
 
@@ -240,10 +239,6 @@
                 } else {
                     appendCharToTerminal(text[i]);
                     i++;
-                    charCounter++;
-                    if (animate && charCounter % 18 === 0) {
-                        await new Promise(r => setTimeout(r, 4));
-                    }
                 }
             }
         }
@@ -345,11 +340,10 @@
 
                 if (!fetched) {
                     setStatus('Archivo C no encontrado en el repositorio', 'bg-red-500');
-                    await renderStdoutChunk(
+                    renderStdoutChunk(
                         `\x1b[31mError: No se encontró 'main.c', 'main' ni 'AE10_Calculadora_potencial_solar.c' en esta carpeta.\x1b[0m\n` +
                         `Verifica que el archivo esté en la misma carpeta que este HTML en GitHub Pages.\n`,
-                        runId,
-                        false
+                        runId
                     );
                     return;
                 }
@@ -357,7 +351,7 @@
 
             // 2. Compilar y ejecutar el archivo .c en GCC real
             setStatus(`Compilando ${currentFileName} con GCC...`, 'bg-blue-400');
-            await renderStdoutChunk(`\x1b[36m$ gcc ${currentFileName} -o solar && ./solar\x1b[0m\n`, runId, false);
+            renderStdoutChunk(`\x1b[36m$ gcc ${currentFileName} -o solar && ./solar\x1b[0m\n`, runId);
 
             let stdinHistory = [];
             let printedLength = 0;
@@ -370,7 +364,7 @@
                     // Si hubo error de compilación real en GCC, mostrarlo tal cual
                     if (result.compiler_error) {
                         setStatus('Error de compilación (GCC)', 'bg-red-500');
-                        await renderStdoutChunk(`\n\x1b[31m${result.compiler_error}\x1b[0m\n`, runId, false);
+                        renderStdoutChunk(`\n\x1b[31m${result.compiler_error}\x1b[0m\n`, runId);
                         return;
                     }
 
@@ -379,7 +373,7 @@
                     printedLength = fullStdout.length;
 
                     if (newOutput.length > 0) {
-                        await renderStdoutChunk(newOutput, runId, stdinHistory.length === 0);
+                        renderStdoutChunk(newOutput, runId);
                     }
 
                     // Detectar si el programa terminó su ejecución (exit status 0 o distinto)
@@ -387,11 +381,11 @@
 
                     if (result.status === '0' && !hasMorePrompts) {
                         setStatus('Ejecución finalizada (exit code 0)', 'bg-emerald-500');
-                        await renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código 0]\x1b[0m\n`, runId, false);
+                        renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código 0]\x1b[0m\n`, runId);
                         break;
                     } else if (result.status !== '0' && result.status !== undefined && !hasMorePrompts) {
                         setStatus(`Finalizado con código ${result.status}`, 'bg-amber-500');
-                        await renderStdoutChunk(`\n\x1b[33m[Proceso terminado con código ${result.status}]\x1b[0m\n`, runId, false);
+                        renderStdoutChunk(`\n\x1b[33m[Proceso terminado con código ${result.status}]\x1b[0m\n`, runId);
                         break;
                     }
 
@@ -407,7 +401,7 @@
             } catch (error) {
                 if (runId !== currentRunId) return;
                 setStatus('Error de conexión con el compilador', 'bg-red-500');
-                await renderStdoutChunk(`\n\x1b[31m[Error al ejecutar GCC]: ${error.message}\x1b[0m\n`, runId, false);
+                renderStdoutChunk(`\n\x1b[31m[Error al ejecutar GCC]: ${error.message}\x1b[0m\n`, runId);
             }
         }
 
