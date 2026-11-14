@@ -430,93 +430,72 @@
                         }
                     }
                 },
+                strict: false,
                 unsigned_overflow: 'ignore'
             };
 
             try {
-                // JSCPP.run con step: true devuelve un generador/controlador que avanza instrucción por instrucción
-                const debuggerInstance = JSCPP.run(executableCode, '', Object.assign({}, config, { debug: true }));
+                const debug = JSCPP.run(executableCode, '', Object.assign({}, config, { debug: true }));
 
-                async function stepLoop() {
-                    while (runId === currentRunId) {
-                        // Respetar el tiempo real de usleep() definido en el código C
-                        const now = performance.now();
-                        if (sleepUntil > now) {
-                            await new Promise(r => setTimeout(r, sleepUntil - now));
+                while (true) {
+                    if (runId !== currentRunId) return;
+
+                    // Si el programa C invocó usleep(), esperar ese tiempo real antes de continuar
+                    if (sleepUntil > 0) {
+                        const waitMs = sleepUntil - performance.now();
+                        sleepUntil = 0;
+                        if (waitMs > 0) {
+                            await new Promise(r => setTimeout(r, waitMs));
                             if (runId !== currentRunId) return;
-                        }
-
-                        // Ejecutar un lote de instrucciones de C para mantener fluidez
-                        let status;
-                        for (let steps = 0; steps < 500; steps++) {
-                            status = debuggerInstance.next();
-                            if (status !== false || sleepUntil > performance.now()) {
-                                break;
-                            }
-                        }
-
-                        // Si el programa llegó a return 0 o terminó
-                        if (status !== false && status !== undefined) {
-                            // Si status es un número, es el código de salida de main()
-                            if (typeof status === 'number') {
-                                if (!firstOutputReceived) {
-                                    firstOutputReceived = true;
-                                    hideLoading();
-                                }
-                                setStatus(`Ejecución finalizada (exit code ${status})`, 'bg-emerald-500');
-                                renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código ${status}]\x1b[0m\n`, runId);
-                                break;
-                            }
-                        }
-
-                        // Si el programa está bloqueado esperando entrada en scanf()
-                        if (debuggerInstance.isWaitingForInput && debuggerInstance.isWaitingForInput()) {
-                            if (!firstOutputReceived) {
-                                firstOutputReceived = true;
-                                hideLoading();
-                            }
-                            setStatus('Esperando entrada en scanf()...', 'bg-amber-400');
-                            const userLine = await requestUserInput();
-                            if (runId !== currentRunId) return;
-
-                            appendCharToTerminal(`${userLine}\n`);
-                            // Entregar la línea completa con salto de línea al buffer de stdin de C
-                            for (const ch of (userLine + '\n')) {
-                                inputQueue.push(ch);
-                            }
-                            setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
-                        } else {
-                            // Ceder el hilo al navegador brevemente para renderizar el DOM
-                            await new Promise(r => setTimeout(r, 0));
                         }
                     }
-                }
 
-                await stepLoop();
-            } catch (error) {
-                if (runId !== currentRunId) return;
+                    const status = debug.next();
+
+                    // El programa terminó su ejecución con éxito
+                    if (status && status.done) {
+                        hideLoading();
+                        const exitCode = status.v !== undefined ? status.v : 0;
+                        renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código ${exitCode}]\x1b[0m\n`, runId);
+                        setStatus(`Ejecución finalizada (exit code ${exitCode})`, 'bg-emerald-500');
+                        blockCursor.classList.remove('hidden');
+                        break;
+                    }
+
+                    // El programa está esperando entrada desde stdin (scanf)
+                    if (status && status.type === 'stdin') {
+                        hideLoading();
+                        setStatus('Esperando entrada del usuario (scanf)...', 'bg-amber-400');
+                        const userLine = await requestUserInput();
+                        if (runId !== currentRunId) return;
+
+                        inputWrapper.classList.add('hidden');
+                        inputWrapper.classList.remove('inline-flex');
+                        renderStdoutChunk(`\x1b[32m${userLine}\x1b[0m\n`, runId);
+                        inputQueue.push(userLine + '\n');
+                        setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
+                    }
+
+                    // Ceder control brevemente al navegador para mantener la interfaz fluida
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            } catch (err) {
                 hideLoading();
+                renderStdoutChunk(`\n\x1b[31m[Error]: ${err.message}\x1b[0m\n`, runId);
                 setStatus('Error de ejecución en C', 'bg-red-500');
-                renderStdoutChunk(`\n\x1b[31m[Error]: ${error.message || error}\x1b[0m\n`, runId);
             }
         }
 
-        // Eventos de botones y controles
-        btnRestart.addEventListener('click', () => {
-            runRealCProgram();
-        });
-
-        // Manejo de tecla Enter en el input de la terminal
+        /**
+         * Maneja el envío de datos al presionar Enter o el botón móvil
+         */
         function submitCurrentInput() {
-            if (!inputResolver) return;
-            const val = terminalInput.value.trim();
-            if (val === '') return;
-
-            inputWrapper.classList.add('hidden');
-            inputWrapper.classList.remove('inline-flex');
-            const resolve = inputResolver;
-            inputResolver = null;
-            resolve(val);
+            if (inputResolver) {
+                const val = terminalInput.value;
+                const resolve = inputResolver;
+                inputResolver = null;
+                resolve(val);
+            }
         }
 
         terminalInput.addEventListener('keydown', (e) => {
@@ -531,7 +510,11 @@
             submitCurrentInput();
         });
 
-        // Iniciar descarga y compilación real al cargar la página
+        btnRestart.addEventListener('click', () => {
+            runRealCProgram();
+        });
+
+        // Iniciar automáticamente al cargar la página
         window.addEventListener('DOMContentLoaded', () => {
             runRealCProgram();
         });
