@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compila el .c ORIGINAL a WebAssembly y arma la carpeta _site/ lista para publicar.
 set -euo pipefail
-SRC="AE10_Calculadora_potencial_solar.c"   # <- nombre de tu archivo .c
+SRC="main.c"   # <- nombre de tu archivo .c
 
 rm -rf _site && mkdir -p _site
 emcc "$SRC" web_shim.c -O2 \
