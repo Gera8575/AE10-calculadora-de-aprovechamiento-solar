@@ -126,7 +126,7 @@ async function ejecutar() {
       onExit: code => { if (id === sesion) feed('\n[Programa terminado con código ' + code + ']\n'); },
     };
     const salida = c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); };
-    cfg.preRun = [() => { if (cfg.FS) cfg.FS.init(null, salida, salida); }];
+    cfg.preRun = [m => { if (m.FS) m.FS.init(null, salida, salida); }];
     await crearPrograma(cfg);
   } catch (e) {
     if (id === sesion) feed('No se pudo cargar programa.js / programa.wasm.\n' +
