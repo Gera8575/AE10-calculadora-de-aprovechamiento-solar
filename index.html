@@ -119,12 +119,15 @@ async function ejecutar() {
   const dec = new TextDecoder();
   try {
     await cargarScript();
-    await crearPrograma({
+    const cfg = {
       leerLinea: () => leerLinea(id),
-      stdout: c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); },
-      stderr: c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); },
+      print:    t => { if (id === sesion) feed(t + '\n'); },
+      printErr: t => { if (id === sesion) feed(t + '\n'); },
       onExit: code => { if (id === sesion) feed('\n[Programa terminado con código ' + code + ']\n'); },
-    });
+    };
+    const salida = c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); };
+    cfg.preRun = [() => { if (cfg.FS) cfg.FS.init(null, salida, salida); }];
+    await crearPrograma(cfg);
   } catch (e) {
     if (id === sesion) feed('No se pudo cargar programa.js / programa.wasm.\n' +
       'Se generan al compilar (build.sh o GitHub Actions) y la página debe abrirse por http(s), no con file://.\n');
