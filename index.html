@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fef9c3">
 <title>Calculadora de Potencial Solar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,6 +11,7 @@
 <style>
   :root { --ink:#18181b; --paper:#fffdf7; --amber:#fbbf24; --amber-soft:#fde68a; --mint:#6ee7b7; --screen:#121316; }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; min-height: 100vh; padding: 32px 12px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -20,53 +22,86 @@
   }
   .wrap { width: min(100%, 1100px); display: flex; flex-direction: column; gap: 20px; }
 
-  /* Bloques neo-brutalistas: borde grueso y sombra dura */
   .card { background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); border-radius: 16px; }
 
   header.card { padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
   .logo { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: var(--amber);
           border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); }
   .logo svg { width: 24px; height: 24px; }
   .badge { display: inline-block; margin-bottom: 4px; padding: 2px 8px; background: var(--mint); border: 1px solid var(--ink);
            border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-  h1 { margin: 0; font-family: Syne, sans-serif; font-weight: 800; font-size: clamp(20px, 3vw, 26px); letter-spacing: -.01em; line-height: 1; }
+  h1 { margin: 0; font-family: Syne, sans-serif; font-weight: 800; font-size: clamp(20px, 3vw, 26px); letter-spacing: -.01em; line-height: 1.05; }
 
-  .btn { font: 700 12px "Space Mono", monospace; color: var(--ink); background: var(--amber); cursor: pointer;
-         padding: 8px 16px; border: 2.5px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink);
-         display: inline-flex; align-items: center; gap: 6px;
+  .btn { font: 700 13px "Space Mono", monospace; color: var(--ink); background: var(--amber); cursor: pointer;
+         min-height: 44px; padding: 8px 18px; border: 2.5px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink);
+         display: inline-flex; align-items: center; justify-content: center; gap: 6px; touch-action: manipulation;
          transition: transform .08s ease, box-shadow .08s ease, background-color .15s ease; }
   .btn svg { width: 16px; height: 16px; }
   .btn:hover { background: #fcd34d; transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
   .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
-  .btn:focus-visible, #in:focus-visible, summary:focus-visible { outline: 3px solid #0ea5e9; outline-offset: 3px; }
+  .btn:focus-visible, summary:focus-visible { outline: 3px solid #0ea5e9; outline-offset: 3px; }
 
   .panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px; }
   .pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 2px solid var(--ink);
           border-radius: 8px; font-size: 12px; font-weight: 700; background: #f4f4f5; }
   .pill.file { background: var(--amber-soft); }
-  #dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink); background: #10b981; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink); background: #10b981; flex: none; }
 
   /* Pantalla oscura de alto contraste */
-  #term { background: var(--screen); color: #f4f4f5; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #27272a;
-          border-radius: 12px; padding: 18px 20px; height: min(64vh, 640px); min-height: 380px; overflow: auto; cursor: text;
-          font: 13px/1.3 "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, "Noto Sans Mono", monospace; }
-  #out { margin: 0; font: inherit; white-space: pre; }
-  #in { font: inherit; font-weight: 700; color: var(--ink); background: #facc15; caret-color: var(--ink);
-        border: 2px solid #09090b; border-radius: 6px; padding: 0 6px; width: 6ch; min-width: 6ch;
-        box-shadow: 2px 2px 0 #000; }
-  .hint { padding: 0 4px; font-size: 12px; font-weight: 700; color: #3f3f46; }
+  #term { position: relative; background: var(--screen); color: #f4f4f5; border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px #27272a;
+          border-radius: 12px; padding: 18px 20px; height: min(64vh, 640px); height: min(64dvh, 640px); min-height: 360px;
+          overflow-x: auto; overflow-y: auto; overscroll-behavior: contain;
+          font: 14px/1.3 "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, "Noto Sans Mono", monospace; }
+  #out { font: inherit; }
+  /* Cada línea de salida es un bloque: el texto normal se ajusta al ancho; el logo ASCII se reduce para caber entero. */
+  .ln { min-height: 1.3em; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ln.art { white-space: pre; overflow-wrap: normal; }
 
-  details.card { padding: 12px 16px; }
-  summary { cursor: pointer; font-weight: 700; font-size: 13px; }
-  #fuente { margin: 12px 0 0; padding: 14px; max-height: 360px; overflow: auto; background: var(--screen); color: #f4f4f5;
-            border: 2.5px solid var(--ink); border-radius: 10px;
-            font: 12px/1.4 "DejaVu Sans Mono", Menlo, Consolas, monospace; }
+  /* Barra de entrada fija bajo la pantalla (el teclado del celular no se cierra entre preguntas) */
+  .entrada { display: flex; gap: 10px; align-items: stretch; }
+  .campo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 14px; min-height: 52px;
+           background: #e4e4e7; border: 2.5px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); }
+  .campo .sig { font-weight: 800; user-select: none; }
+  .campo:focus-within { outline: 3px solid #0ea5e9; outline-offset: 3px; }
+  .entrada.activa .campo { background: #facc15; }
+  .entrada.activa .campo:not(:focus-within) { animation: pulso 1.2s ease-in-out infinite; }
+  @keyframes pulso { 50% { box-shadow: 3px 3px 0 var(--ink), 0 0 0 5px rgba(14,165,233,.45); } }
+  @media (prefers-reduced-motion: reduce) { .entrada.activa .campo:not(:focus-within) { animation: none; } }
+  #in { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink);
+        font: 700 16px "Space Mono", monospace; /* 16px evita el zoom automático de iOS */ }
+  #in::placeholder { color: #52525b; font-weight: 400; }
+  #enviar { min-height: 52px; padding: 0 20px; font-size: 14px; }
+
+  .hint { padding: 0 4px; font-size: 12px; font-weight: 700; color: #3f3f46; line-height: 1.4; }
+  .solo-tactil, .solo-vertical { display: none; }
+  @media (pointer: coarse) { .solo-tactil { display: inline; } .solo-mouse { display: none; } }
+
+  details.card { padding: 6px 16px; }
+  summary { cursor: pointer; font-weight: 700; font-size: 13px; min-height: 44px; display: flex; align-items: center; }
+  #fuente { margin: 4px 0 12px; padding: 14px; max-height: 360px; overflow: auto; background: var(--screen); color: #f4f4f5;
+            border: 2.5px solid var(--ink); border-radius: 10px; font: 12px/1.4 "DejaVu Sans Mono", Menlo, Consolas, monospace; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: var(--ink); }
   ::-webkit-scrollbar-thumb { background: #facc15; border: 2px solid var(--ink); }
+
+  /* ---------- Celulares ---------- */
+  @media (max-width: 640px) {
+    body { padding: 10px 8px 20px; justify-content: flex-start; }
+    .wrap { gap: 12px; }
+    .card { box-shadow: 4px 4px 0 var(--ink); border-radius: 14px; }
+    header.card { padding: 12px; gap: 10px; }
+    .logo { width: 38px; height: 38px; }
+    h1 { font-size: 19px; }
+    #restart { width: 100%; }
+    .panel { padding: 10px; gap: 10px; }
+    #term { padding: 10px; font-size: 15px; height: min(50vh, 460px); height: min(50dvh, 460px); min-height: 280px; }
+    #enviar { padding: 0 16px; }
+    #fuente { font-size: 11px; }
+  }
+  @media (max-width: 640px) and (orientation: portrait) { .solo-vertical { display: inline; } }
 </style>
 </head>
 <body>
@@ -92,8 +127,23 @@
       <span class="pill"><span id="dot"></span><span id="estado">Listo</span></span>
       <span class="pill file" id="titulo"></span>
     </div>
-    <div id="term" aria-live="polite"><pre id="out"></pre></div>
-    <div class="hint">Haz clic en la pantalla para escribir y pulsa Enter para confirmar.</div>
+
+    <div id="term" role="log" aria-live="polite"><div id="out"></div></div>
+
+    <form id="entrada" class="entrada" autocomplete="off">
+      <label class="campo">
+        <span class="sig" aria-hidden="true">&gt;_</span>
+        <input id="in" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+               enterkeyhint="send" aria-label="Tu respuesta">
+      </label>
+      <button id="enviar" class="btn" type="submit">Enviar</button>
+    </form>
+
+    <div class="hint">
+      <span class="solo-mouse">Escribe tu respuesta y pulsa Enter.</span>
+      <span class="solo-tactil">Toca el recuadro amarillo, escribe y pulsa Enviar.</span>
+      <span class="solo-vertical"> Tip: gira el teléfono para ver más grande el logo.</span>
+    </div>
   </section>
 
   <details class="card">
@@ -103,28 +153,58 @@
 </div>
 
 <script>
-const FUENTE = 'main.c';   // mismo nombre que en build.sh
-document.getElementById('titulo').textContent = FUENTE;
+const FUENTE   = 'main.c';     // mismo nombre que en build.sh
+const TECLADO  = 'numeric';    // 'numeric' para números; cambia a 'text' si tu programa pide texto
+const ART_COLS = 120;          // ancho (en columnas) del logo ASCII, para reducirlo en pantallas angostas
 
-const term = document.getElementById('term'), out = document.getElementById('out');
-const dot = document.getElementById('dot'), estadoTxt = document.getElementById('estado');
-let style = '', span = null, esc = '', activeInput = null, sesion = 0, scrollPend = false;
+const $ = id => document.getElementById(id);
+const term = $('term'), out = $('out'), inp = $('in'), entrada = $('entrada');
+const dot = $('dot'), estadoTxt = $('estado');
+const tactil = matchMedia('(pointer: coarse)').matches;
+let style = '', span = null, ln = null, esc = '', sesion = 0, scrollPend = false, pendiente = null, ratio = 0.6;
+
+$('titulo').textContent = FUENTE;
+inp.setAttribute('inputmode', TECLADO);
 
 function estado(texto, color) { estadoTxt.textContent = texto; dot.style.background = color; }
+function modoEntrada(modo) {                      // 'espera' | 'lista' | 'fin'
+  entrada.classList.toggle('activa', modo === 'lista');
+  inp.placeholder = modo === 'lista' ? 'Escribe tu respuesta' : modo === 'fin' ? 'Programa terminado' : 'Esperando al programa…';
+}
+modoEntrada('espera');
 
 fetch(FUENTE).then(r => r.ok ? r.text() : Promise.reject())
-  .then(t => document.getElementById('fuente').textContent = t)
-  .catch(() => document.getElementById('fuente').textContent = 'No se pudo cargar ' + FUENTE);
+  .then(t => $('fuente').textContent = t)
+  .catch(() => $('fuente').textContent = 'No se pudo cargar ' + FUENTE);
 
-/* ---------- Render ANSI ---------- */
+/* ---------- Render ANSI por líneas ---------- */
+const RE_ART = /[\u2500-\u28FF]/, RE_TEXTO = /[\p{L}\p{N}]/u;
+
 function color256(n) {
   if (n < 16 || n > 231) return '#888';
   const c = n - 16, l = v => v ? 55 + v * 40 : 0;
   return `rgb(${l(Math.floor(c/36))},${l(Math.floor(c%36/6))},${l(c%6)})`;
 }
+function tamArt() {                               // tamaño de letra para que el logo quepa de lado a lado
+  const m = document.createElement('span');
+  m.style.cssText = 'position:absolute;left:-9999px;visibility:hidden;white-space:pre;font-size:100px;';
+  m.textContent = 'M'.repeat(40); out.appendChild(m);
+  const w = m.getBoundingClientRect().width; m.remove(); if (w) ratio = w / 4000;
+  const base = parseFloat(getComputedStyle(out).fontSize) || 14;
+  const disp = out.clientWidth || 300;
+  return Math.max(3, Math.min(base, Math.floor(disp / (ART_COLS * ratio) * 10) / 10));
+}
+function setArt(l, on) {
+  if (!!l._art === on) return;
+  l._art = on; l.classList.toggle('art', on); l.style.fontSize = on ? tamArt() + 'px' : '';
+}
+function nuevaLinea(heredaArt) {
+  ln = document.createElement('div'); ln.className = 'ln'; out.appendChild(ln); span = null;
+  if (heredaArt) setArt(ln, true);
+}
 function ansi(params, cmd) {
-  if (cmd === 'J' && params === '2') { out.textContent = ''; span = null; return; }
-  if (cmd !== 'm') return;                       // H, ?25l, ?25h: sin efecto aquí
+  if (cmd === 'J' && params === '2') { out.textContent = ''; ln = null; span = null; return; }
+  if (cmd !== 'm') return;                        // H, ?25l, ?25h: sin efecto aquí
   const p = params ? params.split(';').map(Number) : [0];
   for (let i = 0; i < p.length; i++) {
     if (p[i] === 0) style = '';
@@ -134,10 +214,13 @@ function ansi(params, cmd) {
   span = null;
 }
 function emit(ch) {
-  if (!span) { span = document.createElement('span'); if (style) span.style.cssText = style; out.appendChild(span); }
+  if (!ln) nuevaLinea(false);
+  if (RE_ART.test(ch)) setArt(ln, true); else if (RE_TEXTO.test(ch)) setArt(ln, false);
+  if (!span) { span = document.createElement('span'); if (style) span.style.cssText = style; ln.appendChild(span); }
   span.textContent += ch;
 }
-function feed(s) {                               // acepta secuencias partidas entre llamadas
+function salto() { const art = ln && ln._art; if (!ln) nuevaLinea(false); nuevaLinea(art); }
+function feed(s) {                                // acepta secuencias partidas entre llamadas
   for (const ch of s) {
     if (esc) {
       esc += ch;
@@ -146,28 +229,36 @@ function feed(s) {                               // acepta secuencias partidas e
         const m = /^\x1b\[([0-9;?]*)([A-Za-z])$/.exec(esc); if (m) ansi(m[1], m[2]); esc = '';
       }
     } else if (ch === '\x1b') esc = ch;
+    else if (ch === '\n') salto();
     else emit(ch);
   }
   if (!scrollPend) { scrollPend = true; requestAnimationFrame(() => { scrollPend = false; term.scrollTop = term.scrollHeight; }); }
 }
+new ResizeObserver(() => {                        // al girar el teléfono o cambiar el tamaño, reajusta el logo
+  const t = tamArt() + 'px';
+  out.querySelectorAll('.ln.art').forEach(l => l.style.fontSize = t);
+}).observe(term);
 
 /* ---------- Entrada (lo que usa scanf) ---------- */
 function leerLinea(id) {
+  if (id !== sesion) return new Promise(() => {});
   return new Promise(resolve => {
-    const input = document.createElement('input');
-    input.id = 'in'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
-    input.setAttribute('aria-label', 'Respuesta');
-    span = null; out.appendChild(input); activeInput = input; input.focus();
-    if (id === sesion) estado('Esperando tu respuesta', '#facc15');
-    input.addEventListener('input', () => input.style.width = Math.max(6, input.value.length + 1) + 'ch');
-    input.addEventListener('keydown', e => {
-      if (e.key !== 'Enter' || id !== sesion) return;
-      const v = input.value; input.remove(); activeInput = null;
-      estado('Ejecutando', '#38bdf8');
-      feed(v + '\n'); resolve(v);
-    });
+    pendiente = { id, resolve };
+    modoEntrada('lista'); estado('Esperando tu respuesta', '#facc15');
+    if (!tactil) inp.focus();                     // en celular no se abre el teclado solo: lo abre el toque
   });
 }
+$('enviar').addEventListener('mousedown', e => e.preventDefault());   // el botón no le quita el foco al campo
+entrada.addEventListener('submit', e => {
+  e.preventDefault();
+  inp.focus();                                    // mantiene abierto el teclado entre preguntas
+  if (!pendiente) return;
+  const { resolve } = pendiente; pendiente = null;
+  const v = inp.value; inp.value = '';
+  modoEntrada('espera'); estado('Ejecutando', '#38bdf8');
+  feed(v + '\n'); resolve(v);
+});
+term.addEventListener('click', () => { if (!tactil) inp.focus(); });
 
 /* ---------- Carga y ejecución del .wasm ---------- */
 const cargarScript = () => new Promise((ok, fallo) => {
@@ -178,8 +269,8 @@ const cargarScript = () => new Promise((ok, fallo) => {
 
 async function ejecutar() {
   const id = ++sesion;
-  if (activeInput) { activeInput.remove(); activeInput = null; }
-  out.textContent = ''; style = ''; span = null; esc = '';
+  pendiente = null; inp.value = ''; modoEntrada('espera');
+  out.textContent = ''; ln = null; span = null; style = ''; esc = '';
   estado('Ejecutando', '#38bdf8');
   const dec = new TextDecoder();
   try {
@@ -188,21 +279,24 @@ async function ejecutar() {
       leerLinea: () => leerLinea(id),
       print:    t => { if (id === sesion) feed(t + '\n'); },
       printErr: t => { if (id === sesion) feed(t + '\n'); },
-      onExit: code => { if (id === sesion) { feed('\n[Programa terminado con código ' + code + ']\n'); estado('Terminado', '#a1a1aa'); } },
+      onExit: code => {
+        if (id !== sesion) return;
+        feed('\n[Programa terminado con código ' + code + ']\n');
+        estado('Terminado', '#a1a1aa'); modoEntrada('fin');
+      },
     };
     const salida = c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); };
     cfg.preRun = [m => { if (m.FS) m.FS.init(null, salida, salida); }];
     await crearPrograma(cfg);
   } catch (e) {
     if (id === sesion) {
-      estado('Error', '#ef4444');
+      estado('Error', '#ef4444'); modoEntrada('fin');
       feed('No se pudo cargar programa.js / programa.wasm.\n' +
         'Se generan al compilar (build.sh o GitHub Actions) y la página debe abrirse por http(s), no con file://.\n');
     }
   }
 }
-document.getElementById('restart').onclick = ejecutar;
-term.addEventListener('click', () => activeInput && activeInput.focus());
+$('restart').onclick = ejecutar;
 ejecutar();
 </script>
 </body>
