@@ -1,523 +1,138 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal C - Calculadora de Potencial Solar</title>
-    <!-- Tailwind CSS para diseño moderno y responsivo -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Intérprete real de C/C++ compilado para navegador -->
-    <script src="https://cdn.jsdelivr.net/gh/felixhao28/JSCPP@gh-pages/dist/JSCPP.es5.min.js"></script>
-    <!-- Fuente monoespaciada ideal para arte ASCII y caracteres Braille -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0b0f19;
-        }
-        .terminal-font {
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-variant-ligatures: none;
-            line-height: 1.25;
-        }
-        /* Barra de desplazamiento personalizada para la terminal */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #111827;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #4b5563;
-        }
-        /* Cursor parpadeante de consola */
-        @keyframes blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-        }
-        .cursor-blink {
-            animation: blink 1s infinite;
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de potencial solar</title>
+<style>
+  :root { --page:#e9e6df; --ink:#2b2a27; --bar:#cfcac0; --bg:#17191c; --fg:#d8dadd; --accent:#e5a93b; }
+  @media (prefers-color-scheme: dark) { :root { --page:#0f1012; --ink:#cfd1d4; --bar:#26282c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:14px "Segoe UI",system-ui,sans-serif;
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 12px; gap:14px; }
+  .win, details { width:min(100%,980px); }
+  .win { border-radius:10px; overflow:hidden; background:var(--bg); box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .bar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bar); }
+  .dot { width:11px; height:11px; border-radius:50%; background:#e0524a; }
+  .dot:nth-child(2){background:#e5b53b} .dot:nth-child(3){background:#4caf6a}
+  .t { flex:1; margin-left:6px; }
+  button { font:inherit; color:inherit; background:transparent; border:1px solid currentColor;
+           border-radius:5px; padding:2px 10px; cursor:pointer; }
+  button:focus-visible, #in:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #term { color:var(--fg); padding:14px 16px; height:min(75vh,720px); overflow:auto; cursor:text;
+          font:13px/1.15 "DejaVu Sans Mono","Cascadia Mono",Menlo,Consolas,"Noto Sans Mono",monospace; }
+  #out { margin:0; font:inherit; white-space:pre; }
+  #in { font:inherit; color:var(--accent); background:transparent; border:0; padding:0; width:1ch; caret-color:var(--accent); }
+  details pre { overflow:auto; max-height:360px; padding:12px; border-radius:8px; background:var(--bg); color:var(--fg);
+                font:12px/1.4 "DejaVu Sans Mono",Menlo,Consolas,monospace; }
+  summary { cursor:pointer; }
+</style>
 </head>
-<body class="text-gray-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 md:p-6">
-
-    <!-- Contenedor principal tipo ventana de escritorio / IDE -->
-    <div class="w-full max-w-6xl bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
-        
-        <!-- Barra superior de la ventana (estilo macOS/Linux) -->
-        <div class="bg-gray-950 px-4 py-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center space-x-2">
-                <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
-                <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
-                <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
-                <span id="windowTitle" class="ml-3 text-xs sm:text-sm font-medium text-gray-400 truncate">
-                    bash — gcc main.c -o solar && ./solar
-                </span>
-            </div>
-
-            <!-- Botón de ejecución -->
-            <div class="flex items-center space-x-2">
-                <button id="btnRestart" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    <span>Ejecutar</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Área de la Terminal Interactiva -->
-        <div id="terminalContainer" class="bg-[#0c0e14] p-3 sm:p-5 h-[72vh] min-h-[450px] overflow-y-auto overflow-x-auto cursor-text relative" onclick="focusTerminalInput()">
-            <!-- Indicador visual de carga mientras se prepara/compila el código C -->
-            <div id="loadingOverlay" class="flex flex-col items-center justify-center h-full text-gray-400 space-y-3 select-none">
-                <div class="w-9 h-9 border-4 border-gray-700 border-t-emerald-500 rounded-full animate-spin"></div>
-                <div class="text-center space-y-1">
-                    <p id="loadingTitle" class="text-sm font-medium text-gray-200">Cargando y compilando código C...</p>
-                    <p id="loadingSubtitle" class="text-xs text-gray-500 font-mono">gcc -Wall -O2</p>
-                </div>
-            </div>
-
-            <!-- Contenedor donde se renderiza la salida estándar (stdout) con soporte ANSI -->
-            <pre id="terminalOutput" class="terminal-font text-[10px] sm:text-xs md:text-sm whitespace-pre text-gray-100 select-text"></pre>
-            
-            <!-- Línea de entrada activa (stdin) para scanf -->
-            <div id="inputWrapper" class="hidden items-center terminal-font text-xs sm:text-sm mt-1">
-                <input 
-                    type="text" 
-                    id="terminalInput" 
-                    autocomplete="off" 
-                    spellcheck="false"
-                    inputmode="numeric"
-                    class="bg-transparent border-none outline-none text-emerald-400 font-semibold w-48 sm:w-64 caret-emerald-400"
-                    placeholder="Escribe un número y presiona Enter..."
-                />
-            </div>
-
-            <!-- Cursor bloque cuando está imprimiendo -->
-            <span id="blockCursor" class="hidden w-2 h-4 bg-gray-300 cursor-blink align-middle"></span>
-        </div>
-
-        <!-- Barra inferior de estado y ayuda táctil para móviles -->
-        <div class="bg-gray-950 px-4 py-2.5 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
-            <div class="flex items-center gap-2">
-                <span id="statusIndicator" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span id="statusText">Listo</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="hidden sm:inline">Tip: Haz clic en cualquier parte de la consola para escribir.</span>
-                <button id="btnMobileEnter" class="sm:hidden px-3 py-1 bg-blue-600 text-white rounded font-medium">Enviar (Enter)</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Posibles rutas relativas dentro del repositorio (priorizando main.c y main)
-        const CANDIDATE_PATHS = [
-            './main.c',
-            './main',
-            './AE10_Calculadora_potencial_solar.c'
-        ];
-
-        // Referencias al DOM
-        const terminalOutput = document.getElementById('terminalOutput');
-        const terminalContainer = document.getElementById('terminalContainer');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingTitle = document.getElementById('loadingTitle');
-        const loadingSubtitle = document.getElementById('loadingSubtitle');
-        const inputWrapper = document.getElementById('inputWrapper');
-        const terminalInput = document.getElementById('terminalInput');
-        const blockCursor = document.getElementById('blockCursor');
-        const statusIndicator = document.getElementById('statusIndicator');
-        const statusText = document.getElementById('statusText');
-        const btnRestart = document.getElementById('btnRestart');
-        const windowTitle = document.getElementById('windowTitle');
-        const btnMobileEnter = document.getElementById('btnMobileEnter');
-
-        // Estado de ejecución
-        let currentSourceCode = '';
-        let currentFileName = 'main.c';
-        let currentRunId = 0;
-        let currentSpan = null;
-        let currentFgColor = null;
-        let currentBgColor = null;
-        let inputResolver = null;
-
-        /**
-         * Muestra el overlay de carga dentro de la terminal
-         */
-        function showLoading(title, subtitle = '') {
-            loadingTitle.textContent = title;
-            loadingSubtitle.textContent = subtitle;
-            loadingOverlay.classList.remove('hidden');
-            loadingOverlay.classList.add('flex');
-        }
-
-        /**
-         * Oculta el overlay de carga
-         */
-        function hideLoading() {
-            loadingOverlay.classList.add('hidden');
-            loadingOverlay.classList.remove('flex');
-        }
-
-        /**
-         * Actualiza la barra de estado inferior
-         */
-        function setStatus(text, colorClass) {
-            statusText.textContent = text;
-            statusIndicator.className = `w-2 h-2 rounded-full ${colorClass}`;
-        }
-
-        /**
-         * Enfoca el input activo si está esperando datos de scanf
-         */
-        function focusTerminalInput() {
-            if (!inputWrapper.classList.contains('hidden')) {
-                terminalInput.focus();
-            }
-        }
-
-        /**
-         * Busca y descarga el archivo .c desde las rutas candidatas del repositorio
-         */
-        async function fetchCFileFromRepo() {
-            for (const path of CANDIDATE_PATHS) {
-                try {
-                    const response = await fetch(path, { cache: 'no-store' });
-                    if (response.ok) {
-                        const text = await response.text();
-                        if (text && text.trim().length > 0 && !text.trim().startsWith('<!DOCTYPE')) {
-                            currentSourceCode = text;
-                            currentFileName = path.replace('./', '');
-                            windowTitle.textContent = `bash — gcc ${currentFileName} -o solar && ./solar`;
-                            return true;
-                        }
-                    }
-                } catch (e) {
-                    // Continuar probando la siguiente ruta candidata
-                }
-            }
-            return false;
-        }
-
-        /**
-         * Adapta directivas específicas de plataforma para su ejecución en JSCPP
-         */
-        function prepareSourceForRuntime(code) {
-            return code
-                .replace(/#ifdef\s+_WIN32[\s\S]*?#else/g, '')
-                .replace(/#endif/g, '')
-                .replace(/#define\s+PAUSA_MS\(ms\)\s+usleep\(\(ms\)\s*\*\s*1000\)/g, '');
-        }
-
-        /**
-         * Obtiene el color CSS equivalente a códigos ANSI estándar o de 256 colores
-         */
-        function ansi256ToHex(code) {
-            const ansiMap = {
-                30: '#1f2937', 31: '#ef4444', 32: '#10b981', 33: '#facc15',
-                34: '#3b82f6', 35: '#a855f7', 36: '#06b6d4', 37: '#f3f4f6',
-                202: '#ea580c', 214: '#f59e0b', 220: '#eab308'
-            };
-            if (ansiMap[code]) return ansiMap[code];
-            if (code >= 16 && code <= 231) {
-                const c = code - 16;
-                const r = Math.floor(c / 36) * 51;
-                const g = Math.floor((c % 36) / 6) * 51;
-                const b = (c % 6) * 51;
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-            return null;
-        }
-
-        /**
-         * Crea o actualiza el span estilizado actual en la terminal
-         */
-        function updateCurrentSpan() {
-            currentSpan = document.createElement('span');
-            if (currentFgColor) currentSpan.style.color = currentFgColor;
-            if (currentBgColor) {
-                currentSpan.style.backgroundColor = currentBgColor;
-                currentSpan.style.color = '#090d16';
-                currentSpan.style.fontWeight = '600';
-                currentSpan.style.padding = '1px 6px';
-                currentSpan.style.borderRadius = '4px';
-                currentSpan.style.display = 'inline-block';
-                currentSpan.style.margin = '2px 0';
-            }
-            terminalOutput.appendChild(currentSpan);
-        }
-
-        /**
-         * Añade texto plano respetando el estilo ANSI activo
-         */
-        function appendCharToTerminal(text) {
-            if (!currentSpan) updateCurrentSpan();
-            currentSpan.appendChild(document.createTextNode(text));
-            terminalContainer.scrollTop = terminalContainer.scrollHeight;
-        }
-
-        /**
-         * Interpreta secuencias de escape ANSI (\033[...m, \033[2J, \033[?25l, etc.) y renderiza stdout
-         */
-        function renderStdoutChunk(chunk, runId) {
-            if (runId !== currentRunId || !chunk) return;
-            const ansiRegex = /\x1b\[([0-9;?]*[A-Za-z])/g;
-            let lastIndex = 0;
-            let match;
-
-            while ((match = ansiRegex.exec(chunk)) !== null) {
-                if (match.index > lastIndex) {
-                    appendCharToTerminal(chunk.slice(lastIndex, match.index));
-                }
-                const seq = match[1];
-                if (seq === '2J') {
-                    terminalOutput.innerHTML = '';
-                    currentSpan = null;
-                } else if (seq === 'H') {
-                    // Posicionar cursor al inicio
-                } else if (seq === '?25l') {
-                    blockCursor.classList.add('hidden');
-                } else if (seq === '?25h') {
-                    blockCursor.classList.remove('hidden');
-                } else if (seq.endsWith('m')) {
-                    const params = seq.slice(0, -1).split(';').map(Number);
-                    if (params[0] === 0 || isNaN(params[0])) {
-                        currentFgColor = null;
-                        currentBgColor = null;
-                    } else if (params[0] === 48 && params[1] === 5 && params[2] !== undefined) {
-                        currentBgColor = ansi256ToHex(params[2]);
-                    } else if (params[0] >= 30 && params[0] <= 37) {
-                        currentFgColor = ansi256ToHex(params[0]);
-                    }
-                    updateCurrentSpan();
-                }
-                lastIndex = ansiRegex.lastIndex;
-            }
-
-            if (lastIndex < chunk.length) {
-                appendCharToTerminal(chunk.slice(lastIndex));
-            }
-        }
-
-        /**
-         * Muestra el campo de entrada en la consola y espera a que el usuario presione Enter
-         */
-        function requestUserInput() {
-            return new Promise((resolve) => {
-                inputResolver = resolve;
-                terminalInput.value = '';
-                inputWrapper.classList.remove('hidden');
-                inputWrapper.classList.add('inline-flex');
-                terminalContainer.scrollTop = terminalContainer.scrollHeight;
-                terminalInput.focus();
-            });
-        }
-
-        /**
-         * Garantiza que la librería JSCPP esté cargada antes de compilar/ejecutar
-         */
-        function ensureJSCppLoaded() {
-            if (typeof window.JSCPP !== 'undefined') {
-                return Promise.resolve(window.JSCPP);
-            }
-            return new Promise((resolve, reject) => {
-                const fallbackUrls = [
-                    'https://cdn.jsdelivr.net/gh/felixhao28/JSCPP@gh-pages/dist/JSCPP.es5.min.js',
-                    'https://felixhao28.github.io/JSCPP/dist/JSCPP.es5.min.js'
-                ];
-                let idx = 0;
-                function tryNext() {
-                    if (typeof window.JSCPP !== 'undefined') return resolve(window.JSCPP);
-                    if (idx >= fallbackUrls.length) {
-                        return reject(new Error('No se pudo cargar el motor JSCPP desde la red.'));
-                    }
-                    const s = document.createElement('script');
-                    s.src = fallbackUrls[idx++];
-                    s.onload = () => {
-                        if (typeof window.JSCPP !== 'undefined') resolve(window.JSCPP);
-                        else tryNext();
-                    };
-                    s.onerror = tryNext;
-                    document.head.appendChild(s);
-                }
-                tryNext();
-            });
-        }
-
-        /**
-         * Flujo principal: lee el archivo .c del repositorio y lo ejecuta paso a paso
-         * deteniéndose realmente en cada scanf() y respetando los usleep() del código.
-         */
-        async function runRealCProgram() {
-            currentRunId++;
-            const runId = currentRunId;
-
-            terminalOutput.innerHTML = '';
-            currentSpan = null;
-            currentFgColor = null;
-            currentBgColor = null;
-            inputWrapper.classList.add('hidden');
-            inputWrapper.classList.remove('inline-flex');
-            showLoading('Obteniendo archivo fuente del repositorio...', 'Buscando main.c / AE10_Calculadora_potencial_solar.c');
-
-            // 1. Obtener el archivo .c del repositorio
-            if (!currentSourceCode) {
-                setStatus('Buscando archivo C en repositorio...', 'bg-amber-400');
-                const fetched = await fetchCFileFromRepo();
-                if (runId !== currentRunId) return;
-
-                if (!fetched) {
-                    hideLoading();
-                    setStatus('Archivo C no encontrado en el repositorio', 'bg-red-500');
-                    renderStdoutChunk(
-                        `\x1b[31mError: No se encontró 'main.c', 'main' ni 'AE10_Calculadora_potencial_solar.c' en esta carpeta.\x1b[0m\n` +
-                        `Verifica que el archivo esté en la misma carpeta que este HTML en GitHub Pages.\n`,
-                        runId
-                    );
-                    return;
-                }
-            }
-
-            showLoading(`Compilando y preparando ${currentFileName}...`, `gcc ${currentFileName} -o solar`);
-            setStatus(`Compilando ${currentFileName}...`, 'bg-amber-400');
-            // Esperar a que el motor JSCPP esté cargado y permitir pintar el indicador de carga
-            await ensureJSCppLoaded();
-            await new Promise(r => setTimeout(r, 60));
-            if (runId !== currentRunId) return;
-
-            setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
-            let firstOutputReceived = false;
-
-            // 2. Configurar ejecución asíncrona paso a paso para detenerse en scanf() y usleep()
-            const executableCode = prepareSourceForRuntime(currentSourceCode);
-            let inputQueue = [];
-            let sleepUntil = 0;
-
-            const config = {
-                stdio: {
-                    write: function(s) {
-                        if (runId !== currentRunId) return;
-                        if (!firstOutputReceived) {
-                            firstOutputReceived = true;
-                            hideLoading();
-                        }
-                        renderStdoutChunk(s, runId);
-                    },
-                    drain: function() {
-                        if (inputQueue.length > 0) {
-                            return inputQueue.shift();
-                        }
-                        return null;
-                    }
-                },
-                includes: {
-                    'unistd.h': {
-                        load: function(rt) {
-                            rt.regFunc(function(rt, _this, us) {
-                                const microseconds = us.v;
-                                if (microseconds > 0) {
-                                    sleepUntil = performance.now() + (microseconds / 1000);
-                                }
-                            }, 'global', 'usleep', ['int'], rt.intTypeLiteral);
-                        }
-                    }
-                },
-                strict: false,
-                unsigned_overflow: 'ignore'
-            };
-
-            try {
-                const debug = JSCPP.run(executableCode, '', Object.assign({}, config, { debug: true }));
-
-                while (true) {
-                    if (runId !== currentRunId) return;
-
-                    // Si el programa C invocó usleep(), esperar ese tiempo real antes de continuar
-                    if (sleepUntil > 0) {
-                        const waitMs = sleepUntil - performance.now();
-                        sleepUntil = 0;
-                        if (waitMs > 0) {
-                            await new Promise(r => setTimeout(r, waitMs));
-                            if (runId !== currentRunId) return;
-                        }
-                    }
-
-                    const status = debug.next();
-
-                    // El programa terminó su ejecución con éxito
-                    if (status && status.done) {
-                        hideLoading();
-                        const exitCode = status.v !== undefined ? status.v : 0;
-                        renderStdoutChunk(`\n\x1b[32m[Proceso terminado con código ${exitCode}]\x1b[0m\n`, runId);
-                        setStatus(`Ejecución finalizada (exit code ${exitCode})`, 'bg-emerald-500');
-                        blockCursor.classList.remove('hidden');
-                        break;
-                    }
-
-                    // El programa está esperando entrada desde stdin (scanf)
-                    if (status && status.type === 'stdin') {
-                        hideLoading();
-                        setStatus('Esperando entrada del usuario (scanf)...', 'bg-amber-400');
-                        const userLine = await requestUserInput();
-                        if (runId !== currentRunId) return;
-
-                        inputWrapper.classList.add('hidden');
-                        inputWrapper.classList.remove('inline-flex');
-                        renderStdoutChunk(`\x1b[32m${userLine}\x1b[0m\n`, runId);
-                        inputQueue.push(userLine + '\n');
-                        setStatus(`Ejecutando ${currentFileName}...`, 'bg-blue-400');
-                    }
-
-                    // Ceder control brevemente al navegador para mantener la interfaz fluida
-                    await new Promise(r => setTimeout(r, 0));
-                }
-            } catch (err) {
-                hideLoading();
-                renderStdoutChunk(`\n\x1b[31m[Error]: ${err.message}\x1b[0m\n`, runId);
-                setStatus('Error de ejecución en C', 'bg-red-500');
-            }
-        }
-
-        /**
-         * Maneja el envío de datos al presionar Enter o el botón móvil
-         */
-        function submitCurrentInput() {
-            if (inputResolver) {
-                const val = terminalInput.value;
-                const resolve = inputResolver;
-                inputResolver = null;
-                resolve(val);
-            }
-        }
-
-        terminalInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                submitCurrentInput();
-            }
-        });
-
-        btnMobileEnter.addEventListener('click', (e) => {
-            e.stopPropagation();
-            submitCurrentInput();
-        });
-
-        btnRestart.addEventListener('click', () => {
-            runRealCProgram();
-        });
-
-        // Iniciar automáticamente al cargar la página
-        window.addEventListener('DOMContentLoaded', () => {
-            runRealCProgram();
-        });
-    </script>
+<body>
+<div class="win">
+  <div class="bar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="t" id="titulo"></span>
+    <button id="restart" type="button">Reiniciar</button>
+  </div>
+  <div id="term" aria-live="polite"><pre id="out"></pre></div>
+</div>
+<details>
+  <summary>Ver el código fuente que se está ejecutando</summary>
+  <pre id="fuente">Cargando…</pre>
+</details>
+ 
+<script>
+const FUENTE = 'AE10_Calculadora_potencial_solar.c';   // mismo nombre que en build.sh
+document.getElementById('titulo').textContent = FUENTE;
+ 
+const term = document.getElementById('term'), out = document.getElementById('out');
+let style = '', span = null, esc = '', activeInput = null, sesion = 0, scrollPend = false;
+ 
+fetch(FUENTE).then(r => r.ok ? r.text() : Promise.reject())
+  .then(t => document.getElementById('fuente').textContent = t)
+  .catch(() => document.getElementById('fuente').textContent = 'No se pudo cargar ' + FUENTE);
+ 
+/* ---------- Render ANSI ---------- */
+function color256(n) {
+  if (n < 16 || n > 231) return '#888';
+  const c = n - 16, l = v => v ? 55 + v * 40 : 0;
+  return `rgb(${l(Math.floor(c/36))},${l(Math.floor(c%36/6))},${l(c%6)})`;
+}
+function ansi(params, cmd) {
+  if (cmd === 'J' && params === '2') { out.textContent = ''; span = null; return; }
+  if (cmd !== 'm') return;                       // H, ?25l, ?25h: sin efecto aquí
+  const p = params ? params.split(';').map(Number) : [0];
+  for (let i = 0; i < p.length; i++) {
+    if (p[i] === 0) style = '';
+    else if (p[i] === 33) style = 'color:#e5c07b;';
+    else if (p[i] === 48 && p[i+1] === 5) { style = `background:${color256(p[i+2])};color:#111;`; i += 2; }
+  }
+  span = null;
+}
+function emit(ch) {
+  if (!span) { span = document.createElement('span'); if (style) span.style.cssText = style; out.appendChild(span); }
+  span.textContent += ch;
+}
+function feed(s) {                               // acepta secuencias partidas entre llamadas
+  for (const ch of s) {
+    if (esc) {
+      esc += ch;
+      if (esc.length === 2 && ch !== '[') esc = '';
+      else if (esc.length > 2 && /[A-Za-z]/.test(ch)) {
+        const m = /^\x1b\[([0-9;?]*)([A-Za-z])$/.exec(esc); if (m) ansi(m[1], m[2]); esc = '';
+      }
+    } else if (ch === '\x1b') esc = ch;
+    else emit(ch);
+  }
+  if (!scrollPend) { scrollPend = true; requestAnimationFrame(() => { scrollPend = false; term.scrollTop = term.scrollHeight; }); }
+}
+ 
+/* ---------- Entrada (lo que usa scanf) ---------- */
+function leerLinea(id) {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.id = 'in'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
+    input.setAttribute('aria-label', 'Respuesta');
+    span = null; out.appendChild(input); activeInput = input; input.focus();
+    input.addEventListener('input', () => input.style.width = Math.max(1, input.value.length + 1) + 'ch');
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || id !== sesion) return;
+      const v = input.value; input.remove(); activeInput = null;
+      feed(v + '\n'); resolve(v);
+    });
+  });
+}
+ 
+/* ---------- Carga y ejecución del .wasm ---------- */
+const cargarScript = () => new Promise((ok, fallo) => {
+  if (window.crearPrograma) return ok();
+  const s = document.createElement('script');
+  s.src = 'programa.js'; s.onload = ok; s.onerror = fallo; document.head.appendChild(s);
+});
+ 
+async function ejecutar() {
+  const id = ++sesion;
+  if (activeInput) { activeInput.remove(); activeInput = null; }
+  out.textContent = ''; style = ''; span = null; esc = '';
+  const dec = new TextDecoder();
+  try {
+    await cargarScript();
+    await crearPrograma({
+      leerLinea: () => leerLinea(id),
+      stdout: c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); },
+      stderr: c => { if (id === sesion) feed(dec.decode(Uint8Array.of(c & 255), { stream: true })); },
+      onExit: code => { if (id === sesion) feed('\n[Programa terminado con código ' + code + ']\n'); },
+    });
+  } catch (e) {
+    if (id === sesion) feed('No se pudo cargar programa.js / programa.wasm.\n' +
+      'Se generan al compilar (build.sh o GitHub Actions) y la página debe abrirse por http(s), no con file://.\n');
+  }
+}
+document.getElementById('restart').onclick = ejecutar;
+term.addEventListener('click', () => activeInput && activeInput.focus());
+ejecutar();
+</script>
 </body>
 </html>
