@@ -6,8 +6,8 @@
     <title>Terminal C - Calculadora de Potencial Solar</title>
     <!-- Tailwind CSS para diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Intérprete real de C/C++ en tiempo real con soporte bloqueante para scanf y usleep (con respaldo CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/jscpp/dist/JSCPP.es5.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/jscpp/dist/JSCPP.es5.min.js';"></script>
+    <!-- Intérprete real de C/C++ compilado para navegador -->
+    <script src="https://cdn.jsdelivr.net/gh/felixhao28/JSCPP@gh-pages/dist/JSCPP.es5.min.js"></script>
     <!-- Fuente monoespaciada ideal para arte ASCII y caracteres Braille -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -150,186 +150,206 @@
         let inputResolver = null;
 
         /**
-         * Convierte un índice de paleta ANSI de 256 colores a formato RGB CSS
+         * Muestra el overlay de carga dentro de la terminal
          */
-        function xterm256ToRgb(code) {
-            const standard = [
-                '#000000', '#800000', '#008000', '#808000', '#000080', '#800080', '#008080', '#c0c0c0',
-                '#808080', '#ff0000', '#00ff00', '#ffff00', '#0000ff', '#ff00ff', '#00ffff', '#ffffff'
-            ];
-            if (code < 16) return standard[code];
-            if (code >= 16 && code <= 231) {
-                const idx = code - 16;
-                const r = Math.floor(idx / 36);
-                const g = Math.floor((idx % 36) / 6);
-                const b = idx % 6;
-                const steps = [0, 95, 135, 175, 215, 255];
-                return `rgb(${steps[r]}, ${steps[g]}, ${steps[b]})`;
-            }
-            if (code >= 232 && code <= 255) {
-                const gray = 8 + (code - 232) * 10;
-                return `rgb(${gray}, ${gray}, ${gray})`;
-            }
-            return '#ffffff';
-        }
-
-        function createStyledSpan() {
-            const span = document.createElement('span');
-            if (currentFgColor) span.style.color = currentFgColor;
-            if (currentBgColor) {
-                span.style.backgroundColor = currentBgColor;
-                span.style.padding = '1px 4px';
-                span.style.borderRadius = '3px';
-                if (!currentFgColor) span.style.color = '#090d16';
-                span.style.fontWeight = '600';
-            }
-            terminalOutput.appendChild(span);
-            currentSpan = span;
-        }
-
-        function applyAnsiSequence(seq) {
-            if (seq === '\x1b[2J' || seq === '\x1b[H') {
-                terminalOutput.innerHTML = '';
-                currentSpan = null;
-                return;
-            }
-            if (seq === '\x1b[?25l') {
-                blockCursor.style.display = 'none';
-                return;
-            }
-            if (seq === '\x1b[?25h') {
-                blockCursor.style.display = 'inline-block';
-                return;
-            }
-
-            const match = seq.match(/^\x1b\[([0-9;]*)m$/);
-            if (!match) return;
-
-            const params = match[1].split(';').map(Number);
-            for (let i = 0; i < params.length; i++) {
-                const p = params[i];
-                if (p === 0 || isNaN(p)) {
-                    currentFgColor = null;
-                    currentBgColor = null;
-                } else if (p >= 30 && p <= 37) {
-                    const colors = ['#1f2937', '#ef4444', '#10b981', '#facc15', '#3b82f6', '#a855f7', '#06b6d4', '#f3f4f6'];
-                    currentFgColor = colors[p - 30];
-                } else if (p === 38 && params[i + 1] === 5 && params[i + 2] !== undefined) {
-                    currentFgColor = xterm256ToRgb(params[i + 2]);
-                    i += 2;
-                } else if (p === 48 && params[i + 1] === 5 && params[i + 2] !== undefined) {
-                    currentBgColor = xterm256ToRgb(params[i + 2]);
-                    i += 2;
-                }
-            }
-            createStyledSpan();
-        }
-
-        function appendCharToTerminal(char) {
-            if (!currentSpan) createStyledSpan();
-            currentSpan.textContent += char;
-            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        function showLoading(title, subtitle = '') {
+            loadingTitle.textContent = title;
+            loadingSubtitle.textContent = subtitle;
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
         }
 
         /**
-         * Renderiza salida stdout real emitida por el binario C compilado sin añadir retardos artificiales
+         * Oculta el overlay de carga
          */
-        function renderStdoutChunk(text, runId) {
-            let i = 0;
-            while (i < text.length) {
-                if (runId !== currentRunId) return;
-
-                if (text[i] === '\x1b') {
-                    let seq = '';
-                    while (i < text.length) {
-                        seq += text[i];
-                        const ch = text[i];
-                        i++;
-                        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
-                            break;
-                        }
-                    }
-                    applyAnsiSequence(seq);
-                } else {
-                    appendCharToTerminal(text[i]);
-                    i++;
-                }
-            }
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+            loadingOverlay.classList.remove('flex');
         }
 
-        function requestUserInput() {
-            return new Promise((resolve) => {
-                inputResolver = resolve;
-                inputWrapper.classList.remove('hidden');
-                inputWrapper.classList.add('inline-flex');
-                terminalInput.value = '';
-                terminalContainer.scrollTop = terminalContainer.scrollHeight;
-                setTimeout(() => terminalInput.focus(), 10);
-            });
+        /**
+         * Actualiza la barra de estado inferior
+         */
+        function setStatus(text, colorClass) {
+            statusText.textContent = text;
+            statusIndicator.className = `w-2 h-2 rounded-full ${colorClass}`;
         }
 
+        /**
+         * Enfoca el input activo si está esperando datos de scanf
+         */
         function focusTerminalInput() {
             if (!inputWrapper.classList.contains('hidden')) {
                 terminalInput.focus();
             }
         }
 
-        function setStatus(text, colorClass) {
-            statusText.textContent = text;
-            statusIndicator.className = `w-2 h-2 rounded-full ${colorClass}`;
-        }
-
-        function showLoading(title, subtitle) {
-            loadingTitle.textContent = title;
-            loadingSubtitle.textContent = subtitle || '';
-            loadingOverlay.classList.remove('hidden');
-            loadingOverlay.classList.add('flex');
-            blockCursor.classList.add('hidden');
-            blockCursor.classList.remove('inline-block');
-        }
-
-        function hideLoading() {
-            loadingOverlay.classList.add('hidden');
-            loadingOverlay.classList.remove('flex');
-            blockCursor.classList.remove('hidden');
-            blockCursor.classList.add('inline-block');
-        }
-
         /**
-         * Carga el archivo .c real desde el repositorio probando las rutas candidatas
+         * Busca y descarga el archivo .c desde las rutas candidatas del repositorio
          */
         async function fetchCFileFromRepo() {
             for (const path of CANDIDATE_PATHS) {
                 try {
                     const response = await fetch(path, { cache: 'no-store' });
                     if (response.ok) {
-                        const code = await response.text();
-                        // Verificar que no sea una página HTML 404 personalizada
-                        if (code.trim().startsWith('<!DOCTYPE') || code.trim().startsWith('<html')) {
-                            continue;
+                        const text = await response.text();
+                        if (text && text.trim().length > 0 && !text.trim().startsWith('<!DOCTYPE')) {
+                            currentSourceCode = text;
+                            currentFileName = path.replace('./', '');
+                            windowTitle.textContent = `bash — gcc ${currentFileName} -o solar && ./solar`;
+                            return true;
                         }
-                        const cleanName = path.replace('./', '');
-                        currentSourceCode = code;
-                        currentFileName = cleanName;
-                        windowTitle.textContent = `bash — gcc ${cleanName} -o solar && ./solar`;
-                        return { code, path };
                     }
-                } catch (err) {
-                    // Continuar probando la siguiente ruta
+                } catch (e) {
+                    // Continuar probando la siguiente ruta candidata
                 }
+            }
+            return false;
+        }
+
+        /**
+         * Adapta directivas específicas de plataforma para su ejecución en JSCPP
+         */
+        function prepareSourceForRuntime(code) {
+            return code
+                .replace(/#ifdef\s+_WIN32[\s\S]*?#else/g, '')
+                .replace(/#endif/g, '')
+                .replace(/#define\s+PAUSA_MS\(ms\)\s+usleep\(\(ms\)\s*\*\s*1000\)/g, '');
+        }
+
+        /**
+         * Obtiene el color CSS equivalente a códigos ANSI estándar o de 256 colores
+         */
+        function ansi256ToHex(code) {
+            const ansiMap = {
+                30: '#1f2937', 31: '#ef4444', 32: '#10b981', 33: '#facc15',
+                34: '#3b82f6', 35: '#a855f7', 36: '#06b6d4', 37: '#f3f4f6',
+                202: '#ea580c', 214: '#f59e0b', 220: '#eab308'
+            };
+            if (ansiMap[code]) return ansiMap[code];
+            if (code >= 16 && code <= 231) {
+                const c = code - 16;
+                const r = Math.floor(c / 36) * 51;
+                const g = Math.floor((c % 36) / 6) * 51;
+                const b = (c % 6) * 51;
+                return `rgb(${r}, ${g}, ${b})`;
             }
             return null;
         }
 
         /**
-         * Prepara el código C del repositorio para el entorno POSIX de JSCPP
-         * manteniendo intacta la lógica, textos, colores ANSI y tiempos de usleep/Sleep.
+         * Crea o actualiza el span estilizado actual en la terminal
          */
-        function prepareSourceForRuntime(rawCode) {
-            let code = rawCode;
-            // Reemplazar directivas específicas de Windows/Linux por soporte nativo de stdio/unistd
-            code = code.replace(/#ifdef\s+_WIN32[\s\S]*?#endif/g, '#include <unistd.h>\n#define PAUSA_MS(ms) usleep((ms) * 1000)');
-            return code;
+        function updateCurrentSpan() {
+            currentSpan = document.createElement('span');
+            if (currentFgColor) currentSpan.style.color = currentFgColor;
+            if (currentBgColor) {
+                currentSpan.style.backgroundColor = currentBgColor;
+                currentSpan.style.color = '#090d16';
+                currentSpan.style.fontWeight = '600';
+                currentSpan.style.padding = '1px 6px';
+                currentSpan.style.borderRadius = '4px';
+                currentSpan.style.display = 'inline-block';
+                currentSpan.style.margin = '2px 0';
+            }
+            terminalOutput.appendChild(currentSpan);
+        }
+
+        /**
+         * Añade texto plano respetando el estilo ANSI activo
+         */
+        function appendCharToTerminal(text) {
+            if (!currentSpan) updateCurrentSpan();
+            currentSpan.appendChild(document.createTextNode(text));
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        /**
+         * Interpreta secuencias de escape ANSI (\033[...m, \033[2J, \033[?25l, etc.) y renderiza stdout
+         */
+        function renderStdoutChunk(chunk, runId) {
+            if (runId !== currentRunId || !chunk) return;
+            const ansiRegex = /\x1b\[([0-9;?]*[A-Za-z])/g;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = ansiRegex.exec(chunk)) !== null) {
+                if (match.index > lastIndex) {
+                    appendCharToTerminal(chunk.slice(lastIndex, match.index));
+                }
+                const seq = match[1];
+                if (seq === '2J') {
+                    terminalOutput.innerHTML = '';
+                    currentSpan = null;
+                } else if (seq === 'H') {
+                    // Posicionar cursor al inicio
+                } else if (seq === '?25l') {
+                    blockCursor.classList.add('hidden');
+                } else if (seq === '?25h') {
+                    blockCursor.classList.remove('hidden');
+                } else if (seq.endsWith('m')) {
+                    const params = seq.slice(0, -1).split(';').map(Number);
+                    if (params[0] === 0 || isNaN(params[0])) {
+                        currentFgColor = null;
+                        currentBgColor = null;
+                    } else if (params[0] === 48 && params[1] === 5 && params[2] !== undefined) {
+                        currentBgColor = ansi256ToHex(params[2]);
+                    } else if (params[0] >= 30 && params[0] <= 37) {
+                        currentFgColor = ansi256ToHex(params[0]);
+                    }
+                    updateCurrentSpan();
+                }
+                lastIndex = ansiRegex.lastIndex;
+            }
+
+            if (lastIndex < chunk.length) {
+                appendCharToTerminal(chunk.slice(lastIndex));
+            }
+        }
+
+        /**
+         * Muestra el campo de entrada en la consola y espera a que el usuario presione Enter
+         */
+        function requestUserInput() {
+            return new Promise((resolve) => {
+                inputResolver = resolve;
+                terminalInput.value = '';
+                inputWrapper.classList.remove('hidden');
+                inputWrapper.classList.add('inline-flex');
+                terminalContainer.scrollTop = terminalContainer.scrollHeight;
+                terminalInput.focus();
+            });
+        }
+
+        /**
+         * Garantiza que la librería JSCPP esté cargada antes de compilar/ejecutar
+         */
+        function ensureJSCppLoaded() {
+            if (typeof window.JSCPP !== 'undefined') {
+                return Promise.resolve(window.JSCPP);
+            }
+            return new Promise((resolve, reject) => {
+                const fallbackUrls = [
+                    'https://cdn.jsdelivr.net/gh/felixhao28/JSCPP@gh-pages/dist/JSCPP.es5.min.js',
+                    'https://felixhao28.github.io/JSCPP/dist/JSCPP.es5.min.js'
+                ];
+                let idx = 0;
+                function tryNext() {
+                    if (typeof window.JSCPP !== 'undefined') return resolve(window.JSCPP);
+                    if (idx >= fallbackUrls.length) {
+                        return reject(new Error('No se pudo cargar el motor JSCPP desde la red.'));
+                    }
+                    const s = document.createElement('script');
+                    s.src = fallbackUrls[idx++];
+                    s.onload = () => {
+                        if (typeof window.JSCPP !== 'undefined') resolve(window.JSCPP);
+                        else tryNext();
+                    };
+                    s.onerror = tryNext;
+                    document.head.appendChild(s);
+                }
+                tryNext();
+            });
         }
 
         /**
@@ -368,7 +388,8 @@
 
             showLoading(`Compilando y preparando ${currentFileName}...`, `gcc ${currentFileName} -o solar`);
             setStatus(`Compilando ${currentFileName}...`, 'bg-amber-400');
-            // Permitir que el navegador pinte el estado de compilación antes de iniciar JSCPP
+            // Esperar a que el motor JSCPP esté cargado y permitir pintar el indicador de carga
+            await ensureJSCppLoaded();
             await new Promise(r => setTimeout(r, 60));
             if (runId !== currentRunId) return;
 
