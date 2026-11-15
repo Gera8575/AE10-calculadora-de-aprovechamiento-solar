@@ -10,5 +10,4 @@ Actividad estratégica 10 · Entrega 2: Diseño computacional
 Encuentralo en solarcalc.is-a.dev
 [![Ver Demo](https://img.shields.io/badge/En_Vivo-blue)](https://tec409q.github.io/Solarcalc/)
 
-![alt text](extra/is-adevqr.png)
 ![alt text](extra/githubqr.png)
