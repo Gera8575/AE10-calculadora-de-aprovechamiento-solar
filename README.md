@@ -7,7 +7,7 @@ Actividad estratégica 10 · Entrega 2: Diseño computacional
 | Aprendizaje esperado | Descomponer un problema, identificar entradas, procesos y salidas, seleccionar variables y representar la lógica por el pseudocódigo y diagrama de flujo |
 | Formato de trabajo | Página web optimizada para celulares que simula una terminal con el programa en C corriendo |
 
-Encuentralo en solarcalc.is-a.dev
+Encuentralo en tec409q.github.io/Solarcalc/
 [![Ver Demo](https://img.shields.io/badge/En_Vivo-blue)](https://tec409q.github.io/Solarcalc/)
 
 ![alt text](extra/githubqr.png)
