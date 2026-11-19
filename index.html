@@ -280,6 +280,7 @@ async function ejecutar() {
   try {
     await cargarScript();
     const cfg = {
+      activo: () => id === sesion,
       leerLinea: () => leerLinea(id),
       print:    t => { if (id === sesion) feed(t + '\n'); },
       printErr: t => { if (id === sesion) feed(t + '\n'); },
