@@ -35,6 +35,19 @@ float CalcEnergía(float potencia, int sol, float perdida){ //calcular la energ�
     return (float)energía;
 }
 
+//Tabla de resumen
+void resumen(float porcentajePerdida, float energía, float energíaAnual, int mAhorro, float ahorro, float carbono){
+    printf("\n\n============================== RESUMEN ==============================");
+    if(mAhorro){
+        printf("\nDinero ahorrado en MXN:                              \033[48;5;220m$%15.3f\033[0m", ahorro);
+        printf("\nEmisiones de CO2 evitadas:                           \033[48;5;214m %13.3fkg\033[0m", carbono);
+    }
+    printf("\nPorcentaje de energía perdida por calor al día:      \033[48;5;220m%%%15.3f\033[0m", porcentajePerdida);
+    printf("\nEnergía generada al día en kWh:                      \033[48;5;214m %15.2f\033[0m", energía);
+    printf("\nEnergía generada en un año en kWh:                   \033[48;5;220m %15.3f\033[0m", energíaAnual);
+    printf("\n=====================================================================");
+}
+
 int main(void){
     const char *lineas[] = { //Logo de la calculadora
         "\n  ██████╗           ██╗                  ██╗                 ██╗                             \n",
@@ -68,7 +81,7 @@ int main(void){
     float potencia, perdida;
     char continuar = 'n';
     do{
-        if (continuar == 's'){
+        if (continuar == 's' || continuar == 'S'){
             printf("\033[2J\033[H\n");
         }
         printf("¿Qué tipo de panel prefieres?");
@@ -80,14 +93,16 @@ int main(void){
         do{
             printf("Tipo de panel (1, 2 o 3): ");
                 fflush(stdout);
-                if (scanf(" %d", &tipoPanel) !=1){
+                if (scanf(" %d%*[^\n]", &tipoPanel) !=1){
                     printf("Opción inválida. Ingrese un número\n");
                     while(getchar() != '\n');
                     tipoPanel = 0;
+                }else{
+                    getchar();
+                    if(tipoPanel<1 || tipoPanel>3){
+                        printf("Opción inválida\n");
+                    }
                 }
-            else if(tipoPanel<1 || tipoPanel>3){
-                printf("Opción inválida\n");
-            }
         }while(tipoPanel<1 || tipoPanel>3);
 
         if(tipoPanel==1){
@@ -100,26 +115,30 @@ int main(void){
 
         do{
             printf("¿Cuántas horas de sol hay al día en donde pondrás los paneles? ");
-                if (scanf(" %d", &sol) !=1){
+                if (scanf(" %d%*[^\n]", &sol) !=1){
                     printf("Cantidad de horas invalida. Ingrese un número\n");
                     while(getchar() != '\n');
                     sol = 0;
+                }else{
+                    getchar();
+                    if(sol <= 0 || sol > 24){
+                        printf("Cantidad de horas invalida\n");
+                    }
                 }
-            else if(sol <= 0 || sol > 24){
-                printf("Cantidad de horas invalida\n");
-            }
         }while(sol <= 0 || sol > 24);
 
         do {
             printf("¿Cuál es la temperatura ambiental? (°C) ");
-                if(scanf(" %d", &temp) !=1){
+                if(scanf(" %d%*[^\n]", &temp) !=1){
                     printf("Temperatura inválida. Ingrese un número\n");
                     while(getchar() != '\n');
                     temp =256;
+                }else{
+                    getchar();
+                    if(temp <-50 || temp >60){
+                        printf("Temperatura inválida\n");
+                    }
                 }
-            else if(temp <-50 || temp >60){
-                printf("Temperatura inválida\n");
-            }
         }while(temp <-50 || temp >60);
         if(temp>=50){
             printf("\033[31m[ADVERTENCIA] ¡Temperatura demasiado alta!\033[0m");
@@ -134,11 +153,7 @@ int main(void){
         float porcentajePerdida = perdida*100;
 
         //Resumen del calculo
-        printf("\n\n============================== RESUMEN ==============================");
-        printf("\nPorcentaje de energía perdida por calor al día:       \033[48;5;220m%8.3f\033[0m", porcentajePerdida);
-        printf("\nEnergía generada al día en kWh:                       \033[48;5;214m%8.2f\033[0m", energía);
-        printf("\nEnergía generada en un año en kWh:                    \033[48;5;220m%8.3f\033[0m", energíaAnual);
-        printf("\n=====================================================================");    
+        resumen(porcentajePerdida, energía, energíaAnual, 0, 0, 0);
 
         char ahorroC; //Calcular el ahorro por los paneles
         float preciokWh, ahorro, carbono;
@@ -157,24 +172,18 @@ int main(void){
             carbono = energíaAnual * 0.5;
 
             //Resumen del calculo + ahorro
-            printf("\n\n============================== RESUMEN ==============================");
-            printf("\nDinero ahorrado en MXN:                              \033[48;5;220m$%15.3f\033[0m", ahorro);
-            printf("\nEmisiones de CO2 evitadas:                           \033[48;5;214m %13.3fkg\033[0m", carbono);
-            printf("\nPorcentaje de energía perdida por calor al día:      \033[48;5;220m %15.3f\033[0m", porcentajePerdida);
-            printf("\nEnergía generada al día en kWh:                      \033[48;5;214m %15.2f\033[0m", energía);
-            printf("\nEnergía generada en un año en kWh:                   \033[48;5;220m %15.3f\033[0m", energíaAnual);
-            printf("\n=====================================================================");
+            resumen(porcentajePerdida, energía, energíaAnual, 1, ahorro, carbono);
         }
         
         printf("\n¿Desea realizar otro calculo? (s/n) ");
             do{
                 scanf(" %c", &continuar);
-                if(continuar != 's' && continuar != 'n'){
+                if(continuar != 's' && continuar != 'S' && continuar != 'n' && continuar != 'N'){
                     printf("Invalido. Ingrese 's' o 'n' para continuar: ");
                 }
-            }while(continuar != 's' && continuar != 'n');
+            }while(continuar != 's' && continuar != 'S' && continuar != 'n' && continuar != 'N');
     }while(continuar == 's' || continuar == 'S');
-        if(continuar == 'n'){
+        if(continuar == 'n' || continuar == 'N'){
             printf("\033[48;5;214m¡Gracias por utilizar la calculadora solar!\033[0m\n");
         }
 
