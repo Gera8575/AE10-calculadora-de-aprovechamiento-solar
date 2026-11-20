@@ -82,7 +82,7 @@ int main(void){
                 fflush(stdout);
                 if (scanf(" %d", &tipoPanel) !=1){
                     printf("Opción inválida. Ingrese un número\n");
-                    
+                    while(getchar() != '\n');
                     tipoPanel = 0;
                 }
             else if(tipoPanel<1 || tipoPanel>3){
@@ -102,7 +102,7 @@ int main(void){
             printf("¿Cuántas horas de sol hay al día en donde pondrás los paneles? ");
                 if (scanf(" %d", &sol) !=1){
                     printf("Cantidad de horas invalida. Ingrese un número\n");
-                    
+                    while(getchar() != '\n');
                     sol = 0;
                 }
             else if(sol <= 0 || sol > 24){
@@ -114,7 +114,7 @@ int main(void){
             printf("¿Cuál es la temperatura ambiental? (°C) ");
                 if(scanf(" %d", &temp) !=1){
                     printf("Temperatura inválida. Ingrese un número\n");
-                    
+                    while(getchar() != '\n');
                     temp =256;
                 }
             else if(temp <-50 || temp >60){
@@ -148,7 +148,7 @@ int main(void){
             printf("\033[0mCuál es el costo de la electricidad por kWh de tu casa en pesos? (MXN): \033[38;5;214m");
              if(scanf(" %f", &preciokWh) !=1 ){
                 printf("\033[0mkWh invalido. Ingrese un número");
-                
+                while(getchar() != '\n');
                 preciokWh = 0;
              }
             printf("\033[0m¿Sabías que cada kWh producido con energía solar te ahorra apróximadamente .5kg de CO2?");
